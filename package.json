@@ -1,0 +1,19 @@
+{
+  "name": "blink",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "client",
+    "server"
+  ],
+  "scripts": {
+    "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
+    "build": "npm run build --workspaces",
+    "start": "npm run start --workspace=server",
+    "install:all": "npm install --workspaces",
+    "test": "node --test server/metrics.test.js"
+  },
+  "devDependencies": {
+    "concurrently": "^9.0.0"
+  }
+}

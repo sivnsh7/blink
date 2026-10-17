@@ -1,0 +1,17 @@
+{
+  "name": "blink-server",
+  "version": "1.0.0",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "node --watch index.js",
+    "start": "node index.js",
+    "build": "echo 'No build step for server'",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "ws": "^8.17.0",
+    "cors": "^2.8.5"
+  }
+}

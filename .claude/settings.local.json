@@ -1,0 +1,6 @@
+{
+  "enabledMcpjsonServers": [
+    "motion",
+    "motion-plus"
+  ]
+}

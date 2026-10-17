@@ -1,0 +1,125 @@
+/*
+ * Blink design tokens.
+ * Warm paper neutrals, one ink accent, no gradients, no glow.
+ * Light is the default; .dark on <html> opts into the night palette.
+ */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces */
+  --canvas: #f4f1ea;
+  --surface: #fffdf9;
+  --surface-2: #f8f5ee;
+  --surface-3: #efeadf;
+  --surface-inset: #f2eee5;
+  --rail: #fbf9f4;
+
+  /* Ink */
+  --ink: #191814;
+  --ink-2: #4f4b42;
+  --ink-3: #7d776a;
+  --ink-4: #a49c8c;
+
+  /* Lines */
+  --line: #e3ddd0;
+  --line-strong: #d2cab9;
+
+  /* Accent — cobalt ink, used sparingly */
+  --accent: #2f5ad0;
+  --accent-ink: #2447a8;
+  --accent-wash: rgba(47, 90, 208, 0.08);
+  --accent-wash-strong: rgba(47, 90, 208, 0.13);
+
+  /* Status */
+  --ok: #2c7a58;
+  --ok-wash: rgba(44, 122, 88, 0.1);
+  --warn: #a2620a;
+  --warn-wash: rgba(162, 98, 10, 0.1);
+  --danger: #b3402f;
+  --danger-wash: rgba(179, 64, 47, 0.09);
+
+  /* Traffic dots */
+  --dot-1: #d9a441;
+  --dot-2: #7fa07a;
+  --dot-3: #c47a5c;
+
+  /* Elevation — diffuse, never coloured */
+  --shadow-rail: 0 1px 2px rgba(25, 24, 20, 0.04), 0 12px 32px -12px rgba(25, 24, 20, 0.14);
+  --shadow-card: 0 1px 2px rgba(25, 24, 20, 0.035);
+  --shadow-pop: 0 1px 3px rgba(25, 24, 20, 0.06), 0 18px 40px -20px rgba(25, 24, 20, 0.2);
+
+  /* Type */
+  --sans: 'Instrument Sans Variable', 'Instrument Sans', ui-sans-serif, system-ui, -apple-system,
+    'Segoe UI', sans-serif;
+  --mono: 'IBM Plex Mono', ui-monospace, 'SF Mono', 'Cascadia Mono', monospace;
+
+  /* Geometry */
+  --r-xs: 6px;
+  --r-sm: 8px;
+  --r-md: 12px;
+  --r-lg: 16px;
+  --r-xl: 22px;
+  --r-2xl: 28px;
+  --r-pill: 999px;
+
+  --rail-w: 252px;
+  --rail-w-collapsed: 76px;
+  --rail-inset: 14px;
+  --ease: cubic-bezier(0.2, 0.8, 0.2, 1);
+  --speed: 180ms;
+
+  /* 3D chart shading */
+  --bar-front: #2f5ad0;
+  --bar-top: #6f8fe6;
+  --bar-side: #23449c;
+  --bar-muted-front: #c9c2b3;
+  --bar-muted-top: #ddd7ca;
+  --bar-muted-side: #b3ab9a;
+}
+
+.dark {
+  color-scheme: dark;
+
+  --canvas: #14130f;
+  --surface: #1b1a16;
+  --surface-2: #201e19;
+  --surface-3: #282620;
+  --surface-inset: #171611;
+  --rail: #191813;
+
+  --ink: #f3efe6;
+  --ink-2: #c3bcae;
+  --ink-3: #948c7d;
+  --ink-4: #6e6759;
+
+  --line: #2c2923;
+  --line-strong: #3b372e;
+
+  --accent: #8aa5ff;
+  --accent-ink: #a7bbff;
+  --accent-wash: rgba(138, 165, 255, 0.1);
+  --accent-wash-strong: rgba(138, 165, 255, 0.16);
+
+  --ok: #6fbf95;
+  --ok-wash: rgba(111, 191, 149, 0.1);
+  --warn: #d9a253;
+  --warn-wash: rgba(217, 162, 83, 0.1);
+  --danger: #e08573;
+  --danger-wash: rgba(224, 133, 115, 0.1);
+
+  --dot-1: #cfa14a;
+  --dot-2: #6f9470;
+  --dot-3: #b47158;
+
+  --shadow-rail: 0 1px 2px rgba(0, 0, 0, 0.4), 0 16px 40px -16px rgba(0, 0, 0, 0.6);
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.3);
+  --shadow-pop: 0 1px 3px rgba(0, 0, 0, 0.4), 0 22px 48px -24px rgba(0, 0, 0, 0.7);
+
+  --bar-front: #8aa5ff;
+  --bar-top: #b3c4ff;
+  --bar-side: #5f7fe0;
+  --bar-muted-front: #3a372f;
+  --bar-muted-top: #4a463c;
+  --bar-muted-side: #302d26;
+}

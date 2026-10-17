@@ -1,0 +1,29 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="color-scheme" content="light dark" />
+    <meta name="theme-color" content="#f4f1ea" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#14130f" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Blink — a local Linux host monitor. Live CPU, memory, storage and network telemetry." />
+    <link rel="icon" href="/favicon.svg" type="image/svg+xml" />
+    <title>Blink — Host monitor</title>
+    <script>
+      // Resolve the theme before first paint so a stored dark preference never
+      // flashes light. App.jsx keeps this in sync afterwards.
+      (function () {
+        try {
+          var stored = localStorage.getItem('blink-theme') || localStorage.getItem('lattice-theme');
+          var dark = stored ? stored === 'dark' : matchMedia('(prefers-color-scheme: dark)').matches;
+          document.documentElement.classList.toggle('dark', dark);
+          document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.jsx"></script>
+  </body>
+</html>
