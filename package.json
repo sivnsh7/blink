@@ -5,7 +5,7 @@
   "type": "module",
   "main": "server/index.js",
   "bin": {
-    "blink": "./bin/blink.js"
+    "blink": "bin/blink.js"
   },
   "workspaces": [
     "client",
