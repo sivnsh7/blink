@@ -7,6 +7,10 @@
 
 A local-first, low-overhead Linux host telemetry, kernel security audit, and process management dashboard. Built with React 19, Vite, Express, and WebSocket, sampling Linux virtual filesystems (`/proc`, `/sys`) with zero external charting bloat, brutalist precision, and classified redaction.
 
+<p align="center">
+  <img src="docs/screenshots/blink-field-dossier-overview.png" alt="Blink // Field Dossier — Linux Host Telemetry Interface" width="100%">
+</p>
+
 ---
 
 ## Quick Start (Run Instantly)
