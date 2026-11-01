@@ -34,8 +34,9 @@ export default function IsoBars({
   return (
     <svg
       className="chart"
-      width={width}
+      width="100%"
       height={height}
+      style={{ maxWidth: width, display: 'block' }}
       viewBox={`0 0 ${width} ${height}`}
       role="img"
       aria-label={label}

@@ -1,13 +1,14 @@
 /**
- * Shared formatting. One set of units for the whole product (binary, IEC
- * labels) so a value never reads "1.2 GB" in one card and "1.1 GiB" in another.
+ * Shared formatting utilities with strict metric truthfulness.
+ * Uses IEC binary units (KiB, MiB, GiB) and never coerces missing values to zero.
  */
 
 export const isNum = (v) => v !== null && v !== undefined && v !== '' && Number.isFinite(Number(v));
 
 export function bytes(v, { rate = false, digits } = {}) {
   if (!isNum(v)) return '—';
-  let n = Math.max(0, Number(v));
+  let n = Number(v);
+  if (n < 0) return '—'; // Invalid/rollback counter
   const units = ['B', 'KiB', 'MiB', 'GiB', 'TiB', 'PiB'];
   let i = 0;
   while (n >= 1024 && i < units.length - 1) {
@@ -31,12 +32,16 @@ export function uptime(seconds) {
   return `${m}m`;
 }
 
-export const clampPct = (v) => Math.max(0, Math.min(100, isNum(v) ? Number(v) : 0));
+/**
+ * Clamps numeric percent strictly between 0 and 100.
+ * Returns null if input is not finite, preventing false "0%" idle states.
+ */
+export const clampPct = (v) => (isNum(v) ? Math.max(0, Math.min(100, Number(v))) : null);
 
 export const series = (history, key) =>
   (history?.[key] || []).map((p) => (typeof p === 'number' ? p : p?.value));
 
-export const lastOf = (history, key, fallback = 0) => {
+export const lastOf = (history, key, fallback = null) => {
   const arr = series(history, key).filter(isNum);
   return arr.length ? Number(arr[arr.length - 1]) : fallback;
 };

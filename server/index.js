@@ -13,6 +13,10 @@ import {
   getSensorMetrics,
   getBatteryMetrics,
   getSystemInfo,
+  getPsiMetrics,
+  getSecurityMetrics,
+  getHostAudit,
+  killHostProcess,
 } from './metrics.js';
 
 const here = path.dirname(fileURLToPath(import.meta.url));
@@ -52,26 +56,46 @@ const safe = (fn, fallback) => {
 const publicDir = path.join(here, 'public');
 
 function collect() {
+  const disk = safe(getDiskMetrics, []);
+  const procs = safe(getProcessMetrics, []);
+
   return {
     cpu: safe(getCpuMetrics, null),
     memory: safe(getMemoryMetrics, null),
-    disk: safe(getDiskMetrics, []),
+    disk,
+    storage: {
+      blockDevices: disk?.blockDevices || [],
+      filesystems: disk?.filesystems || [],
+      rootFilesystem: disk?.rootFilesystem || null,
+    },
+    processes: procs,
+    processesInfo: {
+      sampledCount: procs?.sampledCount ?? procs?.length ?? 0,
+      totalSeen: procs?.totalSeen ?? procs?.length ?? 0,
+    },
     network: safe(getNetworkMetrics, []),
-    processes: safe(getProcessMetrics, []),
     gpu: safe(getGpuMetrics, []),
     sensors: safe(getSensorMetrics, []),
     battery: safe(getBatteryMetrics, []),
     system: safe(getSystemInfo, null),
+    psi: safe(getPsiMetrics, null),
+    security: safe(getSecurityMetrics, null),
     timestamp: Date.now(),
   };
 }
 
 app.disable('x-powered-by');
+app.use(express.json());
 
 app.use((req, res, next) => {
   res.setHeader('X-Content-Type-Options', 'nosniff');
   res.setHeader('Referrer-Policy', 'no-referrer');
   res.setHeader('Cross-Origin-Resource-Policy', 'same-origin');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader(
+    'Content-Security-Policy',
+    "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; img-src 'self' data:; connect-src 'self' ws: wss:; frame-ancestors 'none'; base-uri 'self'; form-action 'self'"
+  );
   // Only API responses are uncacheable; hashed assets keep their ETag.
   if (req.path.startsWith('/api/')) res.setHeader('Cache-Control', 'no-store');
   next();
@@ -80,18 +104,56 @@ app.use((req, res, next) => {
 app.get('/api/health', (req, res) =>
   res.json({
     ok: true,
-    service: 'blink-local-agent',
-    schemaVersion: 1,
+    service: 'blink-field-dossier-agent',
+    designSystem: 'sivnsh7-field-dossier-v4',
+    architecture: 'brutalist-structure-clay-tactility-paper-skeuomorphism',
+    schemaVersion: 2,
     host,
     port,
+    isLoopback: host === '127.0.0.1' || host === 'localhost',
     intervalMs: interval,
-    processControl: false,
+    processControl: true,
+    features: ['procfs', 'sysfs', 'psi', 'security-telemetry', 'host-audit', 'dossier-masking', 'process-termination'],
   })
 );
+
+app.get('/api/audit', (req, res) => {
+  try {
+    const audit = getHostAudit(latest);
+    res.json({ ok: true, audit });
+  } catch (err) {
+    res.status(500).json({ ok: false, error: err.message });
+  }
+});
 
 let latest = collect();
 
 app.get('/api/snapshot', (req, res) => res.json(latest));
+
+app.post('/api/processes/:pid/kill', (req, res) => {
+  const origin = req.headers.origin;
+  if (origin !== undefined && !allowedOrigins.has(origin)) {
+    return res.status(403).json({ ok: false, error: 'Cross-origin request rejected' });
+  }
+
+  const pid = req.params.pid;
+  const signal = req.body?.signal || 'SIGTERM';
+
+  try {
+    const result = killHostProcess(pid, signal);
+    latest = collect();
+    res.json({ ok: true, result });
+  } catch (err) {
+    const isForbidden =
+      err.message.includes('Permission denied') ||
+      err.message.includes('kernel task') ||
+      err.message.includes('Self-termination') ||
+      err.message.includes('PID 1');
+    const isNotFound = err.message.includes('does not exist') || err.message.includes('not found');
+    const statusCode = isForbidden ? 403 : isNotFound ? 404 : 400;
+    res.status(statusCode).json({ ok: false, error: err.message });
+  }
+});
 
 app.use(express.static(publicDir, { fallthrough: true, etag: true, index: false }));
 
@@ -111,7 +173,7 @@ app.get('*', (req, res, next) => {
 
 app.use((req, res) => res.status(404).type('text/plain').send('Not found'));
 
-const wss = new WebSocketServer({ noServer: true, maxPayload: 4 * 1024 * 1024 });
+const wss = new WebSocketServer({ noServer: true, maxPayload: 64 * 1024 });
 const clients = new Set();
 const MAX_BUFFERED = 4 * 1024 * 1024;
 
@@ -197,9 +259,14 @@ server.on('error', (error) => {
   process.exit(1);
 });
 
-server.listen(port, host, () =>
-  console.log(`Blink local agent listening at http://${host}:${port}`)
-);
+server.listen(port, host, () => {
+  console.log(`Blink local agent listening at http://${host}:${port}`);
+  if (host !== '127.0.0.1' && host !== 'localhost') {
+    console.warn(
+      `[SECURITY WARNING] Blink is bound to '${host}'. Endpoints and WebSockets are exposed to external network clients without authentication.`
+    );
+  }
+});
 
 let stopping = false;
 

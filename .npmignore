@@ -1,0 +1,9 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+.env*
+.claude/
+client/
+*.test.js
+BLINK-DEEP-UIUX-BACKEND-AUDIT.md

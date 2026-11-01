@@ -1,7 +1,12 @@
 {
-  "name": "blink",
+  "name": "@sivnsh7/blink",
   "version": "1.0.0",
-  "private": true,
+  "description": "Local-first Linux host telemetry, kernel security audit & process manager in the Sivnsh7 Field Dossier design system.",
+  "type": "module",
+  "main": "server/index.js",
+  "bin": {
+    "blink": "./bin/blink.js"
+  },
   "workspaces": [
     "client",
     "server"
@@ -9,9 +14,55 @@
   "scripts": {
     "dev": "concurrently \"npm run dev --workspace=server\" \"npm run dev --workspace=client\"",
     "build": "npm run build --workspaces",
-    "start": "npm run start --workspace=server",
-    "install:all": "npm install --workspaces",
-    "test": "node --test server/metrics.test.js"
+    "start": "node server/index.js",
+    "test": "node --test server/metrics.test.js",
+    "prepublishOnly": "npm run build"
+  },
+  "keywords": [
+    "linux",
+    "telemetry",
+    "dashboard",
+    "sysfs",
+    "procfs",
+    "psi",
+    "process-manager",
+    "security-audit",
+    "field-dossier",
+    "brutalist",
+    "system-monitor",
+    "host-metrics"
+  ],
+  "author": "Sivnsh7 <https://github.com/sivnsh7>",
+  "contributors": [
+    "Sivnsh7 <https://github.com/sivnsh7>",
+    "Google Antigravity <https://deepmind.google>",
+    "Claude (Anthropic) <https://anthropic.com>",
+    "NVIDIA Nemotron <https://nvidia.com>",
+    "Agnes <https://github.com/sivnsh7/blink>",
+    "Open Source Community <https://github.com/sivnsh7/blink/graphs/contributors>"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sivnsh7/blink.git"
+  },
+  "bugs": {
+    "url": "https://github.com/sivnsh7/blink/issues"
+  },
+  "homepage": "https://github.com/sivnsh7/blink#readme",
+  "files": [
+    "bin",
+    "server",
+    "README.md",
+    "LICENSE.txt"
+  ],
+  "publishConfig": {
+    "access": "public"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.19.2",
+    "ws": "^8.17.0"
   },
   "devDependencies": {
     "concurrently": "^9.0.0"

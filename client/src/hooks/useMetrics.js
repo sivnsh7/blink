@@ -148,11 +148,28 @@ export function useMetrics() {
     stopped.current = false;
     void load();
     connect(false);
-    poller.current = setInterval(load, 5000);
+
+    // Only fallback poll when WebSocket is disconnected and tab is visible
+    poller.current = setInterval(() => {
+      if (!socket.current || socket.current.readyState !== WebSocket.OPEN) {
+        if (!document.hidden) {
+          void load();
+        }
+      }
+    }, 5000);
+
+    const onVisibilityChange = () => {
+      if (!document.hidden && (!socket.current || socket.current.readyState !== WebSocket.OPEN)) {
+        void load();
+      }
+    };
+    document.addEventListener('visibilitychange', onVisibilityChange);
+
     return () => {
       stopped.current = true;
       if (poller.current) clearInterval(poller.current);
       if (retry.current) clearTimeout(retry.current);
+      document.removeEventListener('visibilitychange', onVisibilityChange);
       const ws = socket.current;
       socket.current = null;
       try {
@@ -164,14 +181,17 @@ export function useMetrics() {
   }, [load, connect]);
 
   const reconnect = useCallback(() => {
-    // An explicit reconnect must restart the stream even if it is already up.
-    // Clear the old poller first: each call would otherwise stack another 5s
-    // interval on top of the last one.
     if (poller.current) clearInterval(poller.current);
     stopped.current = false;
     void load();
     connect(true);
-    poller.current = setInterval(load, 5000);
+    poller.current = setInterval(() => {
+      if (!socket.current || socket.current.readyState !== WebSocket.OPEN) {
+        if (!document.hidden) {
+          void load();
+        }
+      }
+    }, 5000);
   }, [load, connect]);
 
   const disconnect = useCallback(() => {

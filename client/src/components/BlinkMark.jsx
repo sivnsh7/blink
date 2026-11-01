@@ -1,39 +1,32 @@
 import React from 'react';
 
 /**
- * Blink — one geometric mark, drawn only with paths.
- * A rounded aperture holding a closing lens. The amber glint is the "blink".
- * Sizes cleanly from 20px to 64px because the geometry stays on a 32 grid.
+ * BlinkMark — Field Dossier Signature Hardware Mark
+ * Combines brutalist structure, struck-brass geometric aperture,
+ * and a glossy lacquer-red button core with live radar phosphor.
  */
 export default function BlinkMark({ size = 32, tile = true, className = '' }) {
-  const body = (
-    <>
-      <path
-        d="M20 11.4c-1.7 2.35-4.3 3.7-7.1 3.7S7.5 13.75 5.8 11.4"
-        fill="none"
-        stroke="var(--canvas)"
-        strokeWidth="2.1"
-        strokeLinecap="round"
-      />
-      <circle cx="14.6" cy="15.4" r="1.55" fill="var(--canvas)" />
-      <circle cx="22.4" cy="12.6" r="1.15" fill="var(--accent)" />
-    </>
-  );
-
   if (!tile) {
     return (
       <svg
         width={size}
         height={size}
-        viewBox="0 0 28 28"
+        viewBox="0 0 32 32"
         fill="none"
         className={className}
         role="img"
-        aria-label="Blink"
+        aria-label="Blink Dossier Mark"
       >
-        <path d="M14 5.2c-4.6 0-8.4 3.4-10 8.8 1.6 5.4 5.4 8.8 10 8.8s8.4-3.4 10-8.8c-1.6-5.4-5.4-8.8-10-8.8Z" stroke="currentColor" strokeWidth="1.9" />
-        <circle cx="14" cy="14" r="3.4" fill="currentColor" />
-        <circle cx="19" cy="9.6" r="1.5" className="brand-glint" />
+        <path
+          d="M16 6 L25 11 V21 L16 26 L7 21 V11 Z"
+          fill="none"
+          stroke="var(--ink)"
+          strokeWidth="2.4"
+          strokeLinejoin="round"
+        />
+        <circle cx="16" cy="16" r="4.5" fill="none" stroke="var(--clay)" strokeWidth="1.8" />
+        <circle cx="16" cy="16" r="2.2" fill="var(--red-active)" />
+        <circle cx="21" cy="11" r="1.3" fill="var(--matrix-red)" />
       </svg>
     );
   }
@@ -42,14 +35,40 @@ export default function BlinkMark({ size = 32, tile = true, className = '' }) {
     <svg
       width={size}
       height={size}
-      viewBox="0 0 28 28"
+      viewBox="0 0 32 32"
       fill="none"
-      className={className}
+      className={`brand__mark ${className}`}
       role="img"
-      aria-label="Blink"
+      aria-label="Blink Dossier Mark"
+      style={{
+        width: size,
+        height: size,
+        display: 'inline-block',
+        flexShrink: 0,
+        boxShadow: 'var(--sh-1)',
+        borderRadius: 8,
+        border: 'var(--border-w) solid var(--ink)',
+        background: 'linear-gradient(180deg, var(--clay-btn-hi), var(--clay-btn-lo))',
+      }}
     >
-      <rect width="28" height="28" rx="8" fill="var(--ink)" />
-      <g transform="translate(0,1.5)">{body}</g>
+      <defs>
+        <linearGradient id="mark-brass" x1="0" y1="0" x2="1" y2="1">
+          <stop offset="0%" stopColor="var(--clay-tint)" />
+          <stop offset="60%" stopColor="var(--clay-light)" />
+          <stop offset="100%" stopColor="var(--clay-dark)" />
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="28" height="28" rx="6" fill="var(--ink)" opacity="0.9" />
+      <path
+        d="M16 7.5 L23.5 11.8 V20.2 L16 24.5 L8.5 20.2 V11.8 Z"
+        fill="none"
+        stroke="url(#mark-brass)"
+        strokeWidth="2"
+        strokeLinejoin="round"
+      />
+      <circle cx="16" cy="16" r="3.8" fill="none" stroke="var(--clay-light)" strokeWidth="1.5" strokeDasharray="3 1.5" />
+      <circle cx="16" cy="16" r="1.9" fill="var(--green)" />
+      <circle cx="20" cy="12" r="1.2" fill="#FFFFFF" opacity="0.8" />
     </svg>
   );
 }
