@@ -1,7 +1,7 @@
 # Blink architecture audit: state, UX, DX and AX
 
 **Review date:** 2026-11-19  
-**Audited baseline:** `main` at `936e33dc88f3b2e03a5d58462218238fb41db495`  
+**Audited baseline:** `main` at `3f4b15e91d090c1d16203f26e15093e811329d23`  
 **Scope:** React client, Node.js/Express/WebSocket agent, telemetry samplers, tests and project guidance.
 
 ## Executive result
