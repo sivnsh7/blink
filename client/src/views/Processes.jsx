@@ -1,6 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import Icon from '../components/Icon';
-import Redacted from '../components/Redacted';
 import { bytes, isNum } from '../lib/format';
 import {
   createProcessDialogState,
@@ -30,9 +29,7 @@ const ProcessRow = React.memo(function ProcessRow({ proc: p, onSelect }) {
   return (
     <tr>
       <td>
-        <Redacted note="PID" className="tabular">
-          {p.pid}
-        </Redacted>
+        <span className="tabular">{p.pid}</span>
       </td>
 
       <td>
@@ -55,11 +52,7 @@ const ProcessRow = React.memo(function ProcessRow({ proc: p, onSelect }) {
             {String(p.name || '?').slice(0, 2).toUpperCase()}
           </span>
           <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '.82rem' }}>
-            {isRoot || isKern ? (
-              <Redacted note="SYS-PROC">{p.name}</Redacted>
-            ) : (
-              p.name
-            )}
+            {p.name || 'Unknown process'}
           </strong>
         </div>
       </td>
@@ -502,9 +495,6 @@ export default function Processes({ metrics, onRefresh }) {
                   <span className="stamp stamp--live">PID {selectedProc.pid}</span>
                 </div>
                 <h2 id="proc-modal-title" className="card-title">{selectedProc.name}</h2>
-                <p id="proc-modal-description" className="card-note">Process details from the latest sample. A signal is sent to the host agent only after explicit confirmation.</p>
-
-
                 <p id="proc-modal-description" className="card-note">Process details from the latest sample. A signal is sent to the host agent only after explicit confirmation.</p>
               </div>
               <button

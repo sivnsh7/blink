@@ -4,6 +4,9 @@
 **Reviewed archive:** `BLINK-REDESIGN.zip`  
 **Review date:** 1 November 2026  
 **Review type:** Static source audit + available test execution + external standards review  
+
+> **Historical snapshot notice (19 November 2026):** This report describes an earlier implementation snapshot. Its discussion of visual masking, per-item reveals and masked exports is historical and is no longer part of the current application. The current `main` branch removed that feature; see `docs/ARCHITECTURE-AUDIT.md` and `docs/STATE-MACHINES.md` for the current architecture. Do not use old findings below as a description of the present UI.
+
 **Frameworks applied:** UI/UX Pro Max review model, Vercel Web Interface Guidelines, WCAG 2.2, W3C Pause/Stop/Hide, MDN reduced-motion guidance, Linux kernel PSI/procfs documentation, and Linux `random(7)` guidance.
 
 > **Executive verdict:** Blink has a distinctive and coherent visual idea, but the current implementation is not yet a trustworthy host-monitoring product. Its largest problems are not merely cosmetic: some displayed security states are fabricated defaults, some labels misrepresent the underlying Linux metrics, storage roll-ups can double-count devices, redaction is not privacy-safe, and repeated synchronous collectors can block the API event loop. Treat this build as an experimental prototype, not a security assessment tool or production host agent.

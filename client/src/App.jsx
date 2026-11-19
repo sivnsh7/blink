@@ -2,8 +2,6 @@ import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { useMetrics } from './hooks/useMetrics';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-import Redacted from './components/Redacted';
-import { RedactionProvider } from './context/RedactionContext';
 import Overview from './views/Overview';
 import Processes from './views/Processes';
 import Performance from './views/Performance';
@@ -132,7 +130,7 @@ export default function App() {
   };
 
   return (
-    <RedactionProvider>
+    <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <div className="shell">
         <Sidebar
@@ -172,7 +170,7 @@ export default function App() {
             <header className="page-head">
               <div>
                 <div className="eyebrow">
-                  <span><Redacted note="HOST NAME">{system?.hostname || 'Local host'}</Redacted></span>
+                  <span>{system?.hostname || 'Local host'}</span>
                   <span aria-hidden="true">/</span>
                   <span>Linux host monitoring</span>
                 </div>
@@ -204,6 +202,6 @@ export default function App() {
           </div>
         </main>
       </div>
-    </RedactionProvider>
+    </>
   );
 }

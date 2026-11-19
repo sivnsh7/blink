@@ -1,8 +1,6 @@
 import React, { useMemo } from 'react';
 import Icon from '../components/Icon';
 import Sparkline from '../components/charts/Sparkline';
-import Redacted from '../components/Redacted';
-import { useRedaction } from '../context/RedactionContext';
 import { bytes, clampPct, isNum, series } from '../lib/format';
 
 function MetricCard({ label, value, hint, icon, tone = 'brand' }) {
@@ -18,39 +16,19 @@ function MetricCard({ label, value, hint, icon, tone = 'brand' }) {
   );
 }
 
-function maskedExport(snapshot) {
-  if (!snapshot) return {};
-  const copy = JSON.parse(JSON.stringify(snapshot));
-  if (copy.system) copy.system.hostname = '[MASKED HOST]';
-  if (Array.isArray(copy.network)) copy.network = copy.network.map(item => ({
-    ...item, mac: item.mac ? '[MASKED]' : item.mac,
-    ip4: item.ip4 ? '[MASKED]' : item.ip4, ip6: item.ip6 ? '[MASKED]' : item.ip6,
-  }));
-  if (Array.isArray(copy.processes)) copy.processes = copy.processes.map(item => ({
-    ...item,
-    pid: item.privilegeClass === 'kernel-task' ? item.pid : '[MASKED]',
-    ppid: item.privilegeClass === 'kernel-task' ? item.ppid : '[MASKED]',
-    startTimeTicks: '[MASKED]',
-    name: item.privilegeClass === 'kernel-task' ? item.name : '[MASKED PROCESS]',
-    command: item.command ? '[MASKED COMMAND]' : item.command,
-  }));
-  return copy;
-}
-
-function downloadSnapshot(payload, mode) {
+function downloadSnapshot(payload) {
   const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement('a');
   anchor.href = url;
-  anchor.download = `blink-snapshot-${mode}-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
+  anchor.download = `blink-snapshot-${new Date().toISOString().replace(/[:.]/g, '-')}.json`;
   document.body.appendChild(anchor);
   anchor.click();
   anchor.remove();
-  URL.revokeObjectURL(url);
+  window.setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
 export default function Overview({ metrics, history, onOpen, onRefresh }) {
-  const { redactionMode } = useRedaction();
   const cpu = clampPct(metrics?.cpu?.overall?.usage);
   const memory = clampPct(metrics?.memory?.usagePercent);
   const filesystems = useMemo(
@@ -72,12 +50,11 @@ export default function Overview({ metrics, history, onOpen, onRefresh }) {
   const cpuSeries = series(history, 'cpu');
   const memorySeries = series(history, 'memory');
 
-  const exportMasked = () => downloadSnapshot(maskedExport(metrics), 'masked');
-  const exportFull = () => {
+  const exportSnapshot = () => {
     const accepted = window.confirm(
-      'This file contains host identifiers, process names and network addresses. Export the complete unmasked snapshot?'
+      'The JSON file includes host identifiers, process names, process IDs and network addresses. Export this complete snapshot?'
     );
-    if (accepted) downloadSnapshot(metrics, 'full');
+    if (accepted) downloadSnapshot(metrics);
   };
 
   const items = [
@@ -92,7 +69,7 @@ export default function Overview({ metrics, history, onOpen, onRefresh }) {
       <section className="hero-banner overview-welcome">
         <div>
           <div className="eyebrow">HOST STATUS <span className="stamp stamp--idle">{metrics?.timestamp ? 'LAST SAMPLE AVAILABLE' : 'WAITING FOR DATA'}</span></div>
-          <h2><Redacted note="HOST NAME">{system.hostname || 'Your Linux host'}</Redacted></h2>
+          <h2>{system.hostname || 'Your Linux host'}</h2>
           <p>
             {system.distro || 'Linux'}{system.kernel ? ` · Kernel ${system.kernel}` : ''}.
             {metrics?.timestamp ? ' Latest telemetry is available below.' : ' Waiting for the first telemetry sample.'}
@@ -159,7 +136,7 @@ export default function Overview({ metrics, history, onOpen, onRefresh }) {
             <div className="overview-list">
               {[...processes].sort((a, b) => (Number(b.cpuPercent) || 0) - (Number(a.cpuPercent) || 0)).slice(0, 5).map(proc => (
                 <div className="overview-process" key={`${proc.pid}-${proc.name}`}>
-                  <span><strong>{proc.name || 'Unknown process'}</strong><small>PID <Redacted note="PROCESS ID">{proc.pid}</Redacted> · {proc.privilegeClass || 'Unknown privilege'}</small></span>
+                  <span><strong>{proc.name || 'Unknown process'}</strong><small>PID {proc.pid} · {proc.privilegeClass || 'Unknown privilege'}</small></span>
                   <b className="tabular">{isNum(proc.cpuPercent) ? `${proc.cpuPercent.toFixed(1)}%` : '—'}</b>
                 </div>
               ))}
@@ -171,12 +148,12 @@ export default function Overview({ metrics, history, onOpen, onRefresh }) {
           <div className="card-head">
             <div><h2 className="card-title">Data export</h2><p className="card-note">Download the current sample for offline review.</p></div>
           </div>
-          <p className="card-note">Masked export removes host identifiers, network addresses, process IDs and command lines. A full export requires separate confirmation.</p>
+          <p className="card-note">Export the complete host snapshot as JSON. Review the confirmation before sharing the file; it can contain host, network and process identifiers.</p>
           <div className="overview-actions export-actions">
-            <button type="button" className="btn btn--clay" onClick={exportMasked} disabled={!metrics}>Export masked snapshot</button>
-            <button type="button" className="btn btn--paper" onClick={exportFull} disabled={!metrics}>Export full snapshot…</button>
+            <button type="button" className="btn btn--clay" onClick={exportSnapshot} disabled={!metrics}>
+              <Icon name="download" size={15} /> Export snapshot (JSON)
+            </button>
           </div>
-          <div className="notice-inline"><Icon name="eye-off" size={16} /><span>{redactionMode ? 'Visual masking is on in the interface.' : 'Visual masking is off in the interface.'} This is a presentation control, not an access-control boundary.</span></div>
         </section>
       </div>
     </div>

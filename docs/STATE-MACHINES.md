@@ -45,13 +45,9 @@ Invariants:
 
 The route is one of overview, processes, performance, hardware or diagnostics. Drawer state is open or closed. NAVIGATE and LOCATION_CHANGED update the route and close the drawer; ESCAPE closes the drawer. Browser history remains synchronized. Old bookmarks map as follows: CPU/memory/storage/network → performance; graphics/sensors/battery → hardware; audit → diagnostics.
 
-### 5. Redaction
+### 5. Remaining interaction state
 
-Global mode is masked or unmasked; local reveal exceptions are a set of keys. A local reveal is allowed only while global masking is enabled. Turning global masking back on clears all local exceptions. Redaction is presentation-layer protection only and must never be described as a confidentiality or authorization boundary.
-
-### 6. Remaining interaction state
-
-Process search, deferred query, sort and filter are local derived/presentation state. Sidebar identity disclosure and rail collapse are simple preferences. Theme is a persisted preference. They do not have multi-phase asynchronous lifecycles, so a reducer would add ceremony without stronger invariants.
+Process search, deferred query, sort and filter are local derived/presentation state. Sidebar identity disclosure and rail collapse are simple preferences. Theme is a persisted preference. There is no identifier masking, reveal registry or related state machine in the current client. They do not have multi-phase asynchronous lifecycles, so a reducer would add ceremony without stronger invariants.
 
 The previous ambient glitch and high-frequency ticker presentation were removed from the primary console. Their timer/animation lifecycles are no longer needed. Native disclosure state remains browser-managed where appropriate.
 

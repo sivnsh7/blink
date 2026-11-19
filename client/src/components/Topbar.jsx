@@ -1,13 +1,11 @@
 import React from 'react';
 import Icon from './Icon';
-import { useRedaction } from '../context/RedactionContext';
 import { telemetryStatusView } from '../lib/stateMachines.js';
 
 export default function Topbar({
   title, connectionState, navOpen, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
   snapshotState = 'empty',
 }) {
-  const { redactionMode, toggleRedactionMode } = useRedaction();
   const status = telemetryStatusView(connectionState, snapshotState);
   const statusClass = {
     live: 'stamp--live',
@@ -34,11 +32,6 @@ export default function Topbar({
           <span className={`dot ${status.tone === 'live' ? 'dot--live' : ''}`} aria-hidden="true" />
           {status.label}
         </span>
-        <button type="button" className="btn btn--paper btn--sm" onClick={toggleRedactionMode}
-          aria-pressed={redactionMode} title="Toggle visual masking">
-          <Icon name={redactionMode ? 'eye-off' : 'eye'} size={15} />
-          <span className="mask-label">{redactionMode ? 'Masked' : 'Visible'}</span>
-        </button>
         <button
           type="button"
           className="icon-btn"

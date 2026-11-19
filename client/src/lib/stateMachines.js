@@ -253,28 +253,3 @@ export function processDialogReducer(state, event) {
   }
 }
 
-export function createRedactionState() {
-  return { mode: 'masked', revealedKeys: new Set() };
-}
-
-export function redactionReducer(state, event) {
-  switch (event.type) {
-    case 'TOGGLE_GLOBAL': {
-      const mode = state.mode === 'masked' ? 'unmasked' : 'masked';
-      return {
-        mode,
-        // Re-masking is a privacy boundary: discard all local exceptions.
-        revealedKeys: mode === 'masked' ? new Set() : state.revealedKeys,
-      };
-    }
-    case 'TOGGLE_REVEAL': {
-      if (state.mode !== 'masked' || !event.key) return state;
-      const revealedKeys = new Set(state.revealedKeys);
-      if (revealedKeys.has(event.key)) revealedKeys.delete(event.key);
-      else revealedKeys.add(event.key);
-      return { ...state, revealedKeys };
-    }
-    default:
-      return state;
-  }
-}
