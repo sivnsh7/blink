@@ -8,9 +8,10 @@ import '@fontsource/ibm-plex-mono/700.css';
 import './tokens.css';
 import './components.css';
 import App from './App';
+import AppErrorBoundary from './components/AppErrorBoundary';
 
 createRoot(document.getElementById('root')).render(
   <React.StrictMode>
-    <App />
+    <AppErrorBoundary><App /></AppErrorBoundary>
   </React.StrictMode>
 );
