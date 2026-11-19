@@ -24,7 +24,7 @@ export default function AuditView({ metrics }) {
 
     try {
       const res = await fetch('/api/audit', { signal: controller.signal });
-      if (!res.ok) throw new Error(\`Audit endpoint returned HTTP \${res.status}\`);
+      if (!res.ok) throw new Error(`Audit endpoint returned HTTP ${res.status}`);
       const json = await res.json();
       if (auditRequestRef.current !== controller) return;
       dispatchAudit({ type: 'SUCCESS', audit: json.audit });
