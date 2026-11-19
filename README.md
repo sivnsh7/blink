@@ -155,6 +155,12 @@ npm start
 
 ---
 
+## State & Lifecycle Model
+
+Blink's explicit client and server state transitions, invariants, and test coverage are documented in [docs/STATE-MACHINES.md](docs/STATE-MACHINES.md).
+
+---
+
 ## Contributors & Acknowledgements
 
 Blink was engineered and audited through a multi-model collaborative development effort:
