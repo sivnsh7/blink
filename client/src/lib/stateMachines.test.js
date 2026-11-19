@@ -16,7 +16,9 @@ import {
 
 test('navigation resolves only known routes and closes the drawer on navigation', () => {
   assert.equal(routeFromHash('#/processes'), 'processes');
-  assert.equal(routeFromHash('#cpu'), 'cpu');
+  assert.equal(routeFromHash('#cpu'), 'performance');
+  assert.equal(routeFromHash('#/battery'), 'hardware');
+  assert.equal(routeFromHash('#/audit'), 'diagnostics');
   assert.equal(routeFromHash('#/missing'), 'overview');
 
   let state = createNavigationState('#/overview');
@@ -30,12 +32,12 @@ test('navigation resolves only known routes and closes the drawer on navigation'
 });
 
 test('Escape and browser location changes are explicit navigation events', () => {
-  let state = createNavigationState('#/audit');
+  let state = createNavigationState('#/diagnostics');
   state = navigationReducer(state, { type: 'OPEN_DRAWER' });
   state = navigationReducer(state, { type: 'ESCAPE' });
   assert.equal(state.drawer, 'closed');
   state = navigationReducer(state, { type: 'LOCATION_CHANGED', hash: '#/battery' });
-  assert.equal(state.route, 'battery');
+  assert.equal(state.route, 'hardware');
 });
 
 test('telemetry connection and snapshot freshness transition independently', () => {
@@ -53,6 +55,11 @@ test('telemetry connection and snapshot freshness transition independently', () 
   });
   assert.equal(state.snapshot, 'fresh');
   assert.equal(state.lastUpdatedAt, 100);
+
+  state = telemetryReducer(state, { type: 'SNAPSHOT_EXPIRED' });
+  assert.equal(state.snapshot, 'stale');
+  state = telemetryReducer(state, { type: 'SNAPSHOT_RECEIVED', source: 'stream', timestamp: 110 });
+  assert.equal(state.snapshot, 'fresh');
 
   state = telemetryReducer(state, { type: 'SOCKET_CLOSED' });
   assert.equal(state.connection, 'retrying');
@@ -251,4 +258,21 @@ test('a stale headline hold completion cannot cancel a later scramble', async ()
   state = glitchReducer(state, { type: 'HOLD_COMPLETE' });
   assert.equal(state, active);
   assert.equal(state.phase, 'scrambling');
+});
+
+
+test('legacy page routes consolidate without breaking saved bookmarks', () => {
+  assert.equal(routeFromHash('#/cpu?view=cores'), 'performance');
+  assert.equal(routeFromHash('#/memory'), 'performance');
+  assert.equal(routeFromHash('#/graphics'), 'hardware');
+  assert.equal(routeFromHash('#/sensors'), 'hardware');
+  assert.equal(routeFromHash('#/audit'), 'diagnostics');
+});
+
+test('snapshot expiry cannot downgrade a paused telemetry session', () => {
+  let state = telemetryReducer(createTelemetryState(), { type: 'START' });
+  state = telemetryReducer(state, { type: 'SNAPSHOT_RECEIVED', source: 'http', timestamp: 1 });
+  state = telemetryReducer(state, { type: 'PAUSE' });
+  const paused = state;
+  assert.equal(telemetryReducer(state, { type: 'SNAPSHOT_EXPIRED' }), paused);
 });

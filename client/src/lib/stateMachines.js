@@ -1,15 +1,21 @@
 export const ROUTES = Object.freeze([
   'overview',
-  'audit',
   'processes',
-  'cpu',
-  'memory',
-  'storage',
-  'network',
-  'graphics',
-  'sensors',
-  'battery',
+  'performance',
+  'hardware',
+  'diagnostics',
 ]);
+
+const LEGACY_ROUTES = Object.freeze({
+  audit: 'diagnostics',
+  cpu: 'performance',
+  memory: 'performance',
+  storage: 'performance',
+  network: 'performance',
+  graphics: 'hardware',
+  sensors: 'hardware',
+  battery: 'hardware',
+});
 
 const routeSet = new Set(ROUTES);
 
@@ -89,6 +95,10 @@ export function telemetryReducer(state, event) {
         error: state.connection === 'unsupported' && event.source === 'http' ? state.error : null,
       };
     }
+    case 'SNAPSHOT_EXPIRED':
+      return state.snapshot === 'fresh' && state.connection !== 'paused' && state.connection !== 'stopped'
+        ? { ...state, snapshot: 'stale' }
+        : state;
     case 'SNAPSHOT_FAILED':
       if (state.connection === 'paused' || state.connection === 'stopped') return state;
       if (state.connection === 'streaming') return state;

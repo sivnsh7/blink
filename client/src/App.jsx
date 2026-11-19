@@ -2,102 +2,51 @@ import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { useMetrics } from './hooks/useMetrics';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
-import TelemetryTicker from './components/TelemetryTicker';
-import Redacted from './components/Redacted';
 import { RedactionProvider } from './context/RedactionContext';
 import Overview from './views/Overview';
-import AuditView from './views/AuditView';
 import Processes from './views/Processes';
-import {
-  CpuView,
-  MemoryView,
-  StorageView,
-  NetworkView,
-  GraphicsView,
-  SensorsView,
-  BatteryView,
-} from './views/Details';
+import Performance from './views/Performance';
+import Hardware from './views/Hardware';
+import Diagnostics from './views/Diagnostics';
 import { uptime } from './lib/format';
 import { createNavigationState, navigationReducer } from './lib/stateMachines.js';
 
-const GROUPS = [
-  {
-    label: 'Telemetry',
-    items: [
-      ['overview', 'Overview', 'overview'],
-      ['audit', 'Security & PSI Audit', 'sensors'],
-      ['processes', 'Process Registry', 'processes'],
-    ],
-  },
-  {
-    label: 'Hardware Subsystems',
-    items: [
-      ['cpu', 'Processor', 'cpu'],
-      ['memory', 'Memory', 'memory'],
-      ['storage', 'Storage', 'storage'],
-      ['network', 'Network', 'network'],
-    ],
-  },
-  {
-    label: 'Board Interfaces',
-    items: [
-      ['graphics', 'Graphics', 'graphics'],
-      ['sensors', 'Sensors', 'sensors'],
-      ['battery', 'Battery', 'battery'],
-    ],
-  },
-];
+const GROUPS = [{
+  label: 'Workspace',
+  items: [
+    ['overview', 'Overview', 'overview'],
+    ['processes', 'Processes', 'processes'],
+    ['performance', 'Performance', 'cpu'],
+    ['hardware', 'Hardware', 'graphics'],
+    ['diagnostics', 'Diagnostics', 'sensors'],
+  ],
+}];
 
 const VIEWS = {
   overview: {
-    title: 'Host Overview',
-    blurb: 'Direct procfs and sysfs hardware telemetry with brutalist precision.',
-    render: (props) => <Overview {...props} />,
-  },
-  audit: {
-    title: 'Security & PSI Audit',
-    blurb: 'Kernel security posture, Linux Pressure Stall Information (PSI), and process hygiene evaluation.',
-    render: (props) => <AuditView {...props} />,
+    title: 'Overview',
+    blurb: 'A live view of host activity, resource use and system state.',
+    render: props => <Overview {...props} />,
   },
   processes: {
-    title: 'Process Registry',
-    blurb: 'Sampled task scheduler processes with classified redaction and privilege auditing.',
-    render: (props) => <Processes metrics={props.metrics} onRefresh={props.onRefresh} />,
+    title: 'Processes',
+    blurb: 'Inspect sampled Linux tasks, compare resource use and manage eligible processes.',
+    render: props => <Processes metrics={props.metrics} onRefresh={props.onRefresh} />,
   },
-  cpu: {
-    title: 'Processor Dossier',
-    blurb: 'Core-level scheduler deltas, hardware clock frequencies, and thermal registers.',
-    render: (props) => <CpuView {...props} />,
+  performance: {
+    title: 'Performance',
+    blurb: 'Understand processor, memory, storage and network activity in one workspace.',
+    render: props => <Performance metrics={props.metrics} history={props.history} />,
   },
-  memory: {
-    title: 'Memory Subsystem',
-    blurb: 'Physical page allocation, active cache buffers, and swap headroom.',
-    render: (props) => <MemoryView {...props} />,
+  hardware: {
+    title: 'Hardware',
+    blurb: 'Explore graphics, thermal sensors, fans and battery telemetry exposed by Linux.',
+    render: props => <Hardware metrics={props.metrics} />,
   },
-  storage: {
-    title: 'Storage Array',
-    blurb: 'Block device throughput, partition capacities, and disk I/O latency.',
-    render: (props) => <StorageView {...props} />,
-  },
-  network: {
-    title: 'Network Fabric',
-    blurb: 'Interface packet counters, RX/TX bandwidth rates, and link states.',
-    render: (props) => <NetworkView {...props} />,
-  },
-  graphics: {
-    title: 'Graphics Adapter',
-    blurb: 'GPU compute utilisation, VRAM buffers, and thermal sensors.',
-    render: (props) => <GraphicsView {...props} />,
-  },
-  sensors: {
-    title: 'Hardware Sensors',
-    blurb: 'Linux hwmon temperature channels and cooling fan RPM telemetry.',
-    render: (props) => <SensorsView {...props} />,
-  },
-  battery: {
-    title: 'Power & Battery',
-    blurb: 'DC charge levels, power draw rates, and battery wear cycles.',
-    render: (props) => <BatteryView {...props} />,
+  diagnostics: {
+    title: 'Diagnostics',
+    blurb: 'Review observed kernel settings, pressure-stall data and heuristic findings.',
+    render: props => <Diagnostics metrics={props.metrics} />,
   },
 };
 
@@ -108,104 +57,82 @@ function initialTheme() {
   try {
     const stored = localStorage.getItem(THEME_KEY) || localStorage.getItem('theme');
     if (stored === 'dark' || stored === 'light') return stored;
-  } catch {
-    /* storage blocked */
-  }
+  } catch {}
   return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
 }
 
 function initialCollapsed() {
-  try {
-    return localStorage.getItem(RAIL_KEY) === 'collapsed';
-  } catch {
-    return false;
-  }
+  try { return localStorage.getItem(RAIL_KEY) === 'collapsed'; } catch { return false; }
 }
 
 export default function App() {
-  const { metrics, history, connected, error, reconnect, disconnect, refresh } = useMetrics();
+  const {
+    metrics, history, connected, connectionState, snapshotState, error,
+    reconnect, disconnect, refresh,
+  } = useMetrics();
   const [navigation, dispatchNavigation] = useReducer(
-    navigationReducer,
-    window.location.hash,
-    createNavigationState
+    navigationReducer, window.location.hash, createNavigationState
   );
-  const view = navigation.route;
-  const mobileOpen = navigation.drawer === 'open';
   const [theme, setTheme] = useState(initialTheme);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
-
+  const view = navigation.route;
+  const mobileOpen = navigation.drawer === 'open';
   const dark = theme === 'dark';
-  const current = VIEWS[view] ?? VIEWS.overview;
+  const current = VIEWS[view] || VIEWS.overview;
+  const system = metrics?.system || null;
+  const processCount = metrics?.processesInfo?.sampledCount ?? metrics?.processes?.length ?? null;
+
+  const meta = useMemo(() => [
+    system?.kernel ? `Kernel ${system.kernel}` : null,
+    system?.cpus != null ? `${system.cpus} logical CPUs` : null,
+    system?.uptime != null ? `Up ${uptime(system.uptime)}` : null,
+    system?.arch ? system.arch : null,
+  ].filter(Boolean), [system?.kernel, system?.cpus, system?.uptime, system?.arch]);
 
   useEffect(() => {
-    document.title = `${current.title} // Blink Field Dossier`;
+    document.title = `${current.title} · Blink`;
   }, [current.title]);
 
   useEffect(() => {
     document.documentElement.classList.toggle('dark', dark);
     document.documentElement.setAttribute('data-theme', dark ? 'dark' : 'light');
     document.documentElement.style.colorScheme = dark ? 'dark' : 'light';
-    try {
-      localStorage.setItem(THEME_KEY, theme);
-    } catch {
-      /* storage blocked */
-    }
+    try { localStorage.setItem(THEME_KEY, theme); } catch {}
   }, [dark, theme]);
 
   useEffect(() => {
-    try {
-      localStorage.setItem(RAIL_KEY, collapsed ? 'collapsed' : 'expanded');
-    } catch {
-      /* storage blocked */
-    }
+    try { localStorage.setItem(RAIL_KEY, collapsed ? 'collapsed' : 'expanded'); } catch {}
   }, [collapsed]);
 
   useEffect(() => {
-    const onKey = (event) => {
+    const syncLocation = () => dispatchNavigation({
+      type: 'LOCATION_CHANGED', hash: window.location.hash,
+    });
+    const onKeyDown = event => {
       if (event.key === 'Escape') dispatchNavigation({ type: 'ESCAPE' });
     };
-    const syncView = () =>
-      dispatchNavigation({ type: 'LOCATION_CHANGED', hash: window.location.hash });
-
-    window.addEventListener('keydown', onKey);
-    window.addEventListener('hashchange', syncView);
-    window.addEventListener('popstate', syncView); // Full browser Back/Forward synchronization
-
+    window.addEventListener('hashchange', syncLocation);
+    window.addEventListener('popstate', syncLocation);
+    window.addEventListener('keydown', onKeyDown);
     return () => {
-      window.removeEventListener('keydown', onKey);
-      window.removeEventListener('hashchange', syncView);
-      window.removeEventListener('popstate', syncView);
+      window.removeEventListener('hashchange', syncLocation);
+      window.removeEventListener('popstate', syncLocation);
+      window.removeEventListener('keydown', onKeyDown);
     };
   }, []);
 
-  const system = metrics?.system || null;
-  const processCount = metrics?.processes?.length ?? null;
-
-  const meta = useMemo(
-    () => [
-      system?.kernel ? `KERNEL ${system.kernel}` : null,
-      system?.cpus ? `${system.cpus} THREADS` : null,
-      system?.uptime != null ? `UP ${uptime(system.uptime).toUpperCase()}` : null,
-      system?.arch ? `ARCH ${system.arch.toUpperCase()}` : null,
-    ].filter(Boolean),
-    [system?.kernel, system?.cpus, system?.uptime, system?.arch]
-  );
-
-  const navigate = (next) => {
+  const navigate = next => {
     if (!VIEWS[next]) return;
     dispatchNavigation({ type: 'NAVIGATE', route: next });
-    if (window.location.hash !== `#${next}`) {
-      window.history.pushState(null, '', `#${next}`);
-    }
-    const prefersReduced = window.matchMedia?.('(prefers-reduced-motion: reduce)')?.matches;
-    window.scrollTo({ top: 0, behavior: prefersReduced ? 'instant' : 'smooth' });
+    const destination = `#/${next}`;
+    if (window.location.hash !== destination) window.history.pushState(null, '', destination);
+    const reduced = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    window.scrollTo({ top: 0, behavior: reduced ? 'auto' : 'smooth' });
   };
 
   return (
     <RedactionProvider>
-      <a href="#main-content" className="sr-only" style={{ top: 8, left: 8, zIndex: 9999 }}>
-        Skip to main content
-      </a>
+      <a href="#main-content" className="skip-link">Skip to content</a>
       <div className="shell">
         <Sidebar
           groups={GROUPS}
@@ -216,94 +143,62 @@ export default function App() {
           collapsed={collapsed}
           mobileOpen={mobileOpen}
           connected={connected}
-          onToggleCollapse={() => setCollapsed((v) => !v)}
+          onToggleCollapse={() => setCollapsed(value => !value)}
           onDisconnect={disconnect}
           onReconnect={reconnect}
         />
 
         {mobileOpen && (
-          <button
-            type="button"
-            className="scrim is-open"
-            aria-label="Close navigation drawer"
-            onClick={() => dispatchNavigation({ type: 'CLOSE_DRAWER' })}
-          />
+          <button type="button" className="scrim" aria-label="Close navigation menu"
+            onClick={() => dispatchNavigation({ type: 'CLOSE_DRAWER' })} />
         )}
 
-        <main id="main-content" className={`workspace ${collapsed ? 'is-collapsed' : ''}`}>
+        <main id="main-content" className="workspace">
           <Topbar
             title={current.title}
             connected={connected}
+            snapshotState={snapshotState}
+            connectionState={connectionState}
             darkMode={dark}
             onToggleTheme={() => setTheme(dark ? 'light' : 'dark')}
             onRetry={reconnect}
+            onRefresh={refresh}
             onOpenNav={() => dispatchNavigation({ type: 'OPEN_DRAWER' })}
-            system={system}
           />
 
           <div className="page">
-            <div className="page-head">
+            <header className="page-head">
               <div>
                 <div className="eyebrow">
-                  <span>
-                    <Redacted note="MASKED-HOST">{system?.hostname || 'LOCAL-NODE'}</Redacted>
-                  </span>
-                  <span aria-hidden="true">·</span>
-                  <span>{current.title}</span>
+                  <span><Redacted note="HOST NAME">{system?.hostname || 'Local host'}</Redacted></span>
+                  <span aria-hidden="true">/</span>
+                  <span>Linux host monitoring</span>
                 </div>
                 <h1>{current.title}</h1>
                 <p>{current.blurb}</p>
               </div>
-
               <div className="head-meta">
-                {meta.map((item) => (
-                  <span className="chip" key={item}>
-                    {item}
-                  </span>
-                ))}
+                {meta.map(item => <span className="chip" key={item}>{item}</span>)}
               </div>
-            </div>
-
-            {/* Real-time Ticker Ribbon */}
-            <TelemetryTicker metrics={metrics} connected={connected} />
+            </header>
 
             {error && (
-              <div
-                className="banner card card-pad"
-                role="alert"
-                style={{
-                  border: 'var(--border-w) solid var(--red)',
-                  background: 'var(--red-tint)',
-                  color: 'var(--red-dark)',
-                  marginBottom: '1.4rem',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                }}
-              >
-                <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
-                  <span className="stamp stamp--hypothesis">ALERT</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '.84rem' }}>{error}</span>
-                </div>
-                <button type="button" className="btn btn--clay btn--sm" onClick={reconnect}>
-                  RECONNECT
-                </button>
+              <div className="banner card card-pad" role="alert">
+                <div><strong>Telemetry issue</strong><p>{error}</p></div>
+                <button type="button" className="btn btn--clay btn--sm" onClick={reconnect}>Reconnect</button>
               </div>
             )}
 
             {current.render({ metrics, history, onOpen: navigate, onRefresh: refresh })}
 
-            <div className="page-foot">
-              <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem' }}>
-                <span className="stamp stamp--confirmed" style={{ fontSize: '.6rem' }}>BLINK FIELD DOSSIER</span>
-                <span>LOCAL AGENT // SYSFS + PROCFS</span>
-              </div>
+            <footer className="page-foot">
+              <span>Blink · Local Linux host telemetry</span>
               <span className="tabular">
                 {metrics?.timestamp
-                  ? `SAMPLE ${new Date(metrics.timestamp).toLocaleTimeString()}`
-                  : 'AWAITING TELEMETRY FRAME'}
+                  ? `Last sample ${new Intl.DateTimeFormat(undefined, { hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(metrics.timestamp))}`
+                  : 'Waiting for the first sample'}
               </span>
-            </div>
+            </footer>
           </div>
         </main>
       </div>

@@ -15,6 +15,14 @@ export function useMetrics() {
   const [history, setHistory] = useState(emptyHistory);
   const [transport, dispatch] = useReducer(telemetryReducer, undefined, createTelemetryState);
 
+  // A connected socket can silently stop delivering frames. Expire freshness
+  // independently from the transport state so the UI never implies live data forever.
+  useEffect(() => {
+    if (transport.snapshot !== 'fresh' || transport.lastUpdatedAt == null) return undefined;
+    const timer = setTimeout(() => dispatch({ type: 'SNAPSHOT_EXPIRED' }), 8000);
+    return () => clearTimeout(timer);
+  }, [transport.snapshot, transport.lastUpdatedAt]);
+
   const socket = useRef(null);
   const retry = useRef(null);
   const poller = useRef(null);
@@ -50,26 +58,38 @@ export function useMetrics() {
         const mounted = data.disk.filter(
           (disk) => disk && disk.mountpoint && !/^(loop|ram)/.test(disk.name || '')
         );
-        push(
-          'storage',
-          mounted.reduce((high, disk) => Math.max(high, Number(disk.usePercent) || 0), 0)
-        );
+        const validStorage = mounted
+          .map((disk) => disk.usePercent)
+          .filter((value) => value !== null && value !== undefined && Number.isFinite(Number(value)));
+        if (validStorage.length) push('storage', Math.max(...validStorage.map(Number)));
+
         // Only mounted filesystems: counting a partition and its parent doubles I/O.
-        push(
-          'disk',
-          sum(mounted.length ? mounted : data.disk, (disk) =>
-            (Number(disk?.readBytesPerSec) || 0) + (Number(disk?.writeBytesPerSec) || 0)
-          )
+        const diskSources = mounted.length ? mounted : data.disk;
+        const diskRatesReady = diskSources.length > 0 && diskSources.every((disk) =>
+          disk?.readBytesPerSec !== null && disk?.readBytesPerSec !== undefined &&
+          disk?.writeBytesPerSec !== null && disk?.writeBytesPerSec !== undefined &&
+          Number.isFinite(Number(disk.readBytesPerSec)) &&
+          Number.isFinite(Number(disk.writeBytesPerSec))
         );
+        if (diskRatesReady) {
+          push('disk', sum(diskSources, (disk) =>
+            Number(disk.readBytesPerSec) + Number(disk.writeBytesPerSec)
+          ));
+        }
       }
 
       if (Array.isArray(data.network)) {
-        push(
-          'network',
-          sum(data.network, (network) =>
-            (Number(network?.rxBytesPerSec) || 0) + (Number(network?.txBytesPerSec) || 0)
-          )
+        const networkRatesReady = data.network.length > 0 && data.network.every((network) =>
+          network?.rxBytesPerSec !== null && network?.rxBytesPerSec !== undefined &&
+          network?.txBytesPerSec !== null && network?.txBytesPerSec !== undefined &&
+          Number.isFinite(Number(network.rxBytesPerSec)) &&
+          Number.isFinite(Number(network.txBytesPerSec))
         );
+        if (networkRatesReady) {
+          push('network', sum(data.network, (network) =>
+            Number(network.rxBytesPerSec) + Number(network.txBytesPerSec)
+          ));
+        }
       }
 
       setHistory({

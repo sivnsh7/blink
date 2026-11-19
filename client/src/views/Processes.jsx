@@ -28,18 +28,7 @@ const ProcessRow = React.memo(function ProcessRow({ proc: p, onSelect }) {
   const isKern = p.privilegeClass === 'kernel-task' || p.isKernel;
 
   return (
-    <tr
-      style={{ cursor: 'pointer' }}
-      onClick={() => onSelect(p)}
-      tabIndex={0}
-      role="row"
-      onKeyDown={(e) => {
-        if (e.key === 'Enter' || e.key === ' ') {
-          e.preventDefault();
-          onSelect(p);
-        }
-      }}
-    >
+    <tr>
       <td>
         <Redacted note="PID" className="tabular">
           {p.pid}
@@ -191,8 +180,8 @@ export default function Processes({ metrics, onRefresh }) {
   };
 
   const handleCloseModal = useCallback(() => {
+    if (operationRef.current) return;
     operationIdRef.current += 1;
-    operationRef.current?.controller.abort();
     operationRef.current = null;
     dispatchDialog({ type: 'CLOSE' });
     if (lastFocusedRef.current && typeof lastFocusedRef.current.focus === 'function') {
@@ -221,7 +210,7 @@ export default function Processes({ metrics, onRefresh }) {
       const res = await fetch('/api/processes/' + target.pid + '/kill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signal }),
+        body: JSON.stringify({ signal, startTimeTicks: target.startTimeTicks }),
         signal: controller.signal,
       });
       let data = null;
@@ -380,7 +369,7 @@ export default function Processes({ metrics, onRefresh }) {
               <h2 className="card-title">Process Security & Resource Registry</h2>
             </div>
             <p className="card-note">
-              Top {all.length} active processes by resource consumption sampled directly from Linux <code style={{ fontFamily: 'var(--font-mono)' }}>/proc/[pid]/stat</code> (out of {totalSeen} total tasks seen). Click any row or dossier button to inspect scheduling registers.
+              Top {all.length} active processes by resource consumption sampled directly from Linux <code style={{ fontFamily: 'var(--font-mono)' }}>/proc/[pid]/stat</code> (out of {totalSeen} total tasks seen). Use the Inspect action to open process details and management controls.
             </p>
           </div>
         </div>
@@ -472,6 +461,7 @@ export default function Processes({ metrics, onRefresh }) {
           role="dialog"
           aria-modal="true"
           aria-labelledby="proc-modal-title"
+          aria-describedby="proc-modal-description"
           style={{
             position: 'fixed',
             inset: 0,
@@ -485,7 +475,7 @@ export default function Processes({ metrics, onRefresh }) {
         >
           <div
             ref={modalRef}
-            className="card card-pad card--fold"
+            className="card card-pad card--fold process-modal"
             style={{
               maxWidth: 580,
               width: '100%',
@@ -497,10 +487,14 @@ export default function Processes({ metrics, onRefresh }) {
             <div className="card-head">
               <div>
                 <div style={{ display: 'flex', gap: '.6rem', marginBottom: '.4rem' }}>
-                  <span className="stamp stamp--confirmed">PROCESS CASE FILE</span>
+                  <span className="stamp stamp--confirmed">PROCESS DETAILS</span>
                   <span className="stamp stamp--live">PID {selectedProc.pid}</span>
                 </div>
                 <h2 id="proc-modal-title" className="card-title">{selectedProc.name}</h2>
+                <p id="proc-modal-description" className="card-note">Process details from the latest sample. A signal is sent to the host agent only after explicit confirmation.</p>
+
+
+                <p id="proc-modal-description" className="card-note">Process details from the latest sample. A signal is sent to the host agent only after explicit confirmation.</p>
               </div>
               <button
                 ref={closeBtnRef}
@@ -509,13 +503,13 @@ export default function Processes({ metrics, onRefresh }) {
                 onClick={handleCloseModal}
                 aria-label="Close process dossier"
               >
-                CLOSE [ESC]
+                Close (Escape)
               </button>
             </div>
 
             <div className="proof" style={{ boxShadow: 'var(--sh-1)', marginBottom: '1.2rem' }}>
               <div>
-                <span className="proof__n">{isNum(selectedProc.cpuPercent) ? selectedProc.cpuPercent.toFixed(1) : 0}%</span>
+                <span className="proof__n">{isNum(selectedProc.cpuPercent) ? `${selectedProc.cpuPercent.toFixed(1)}%` : '—'}</span>
                 <span className="lbl proof__l">CORE LOAD</span>
               </div>
               <div>
@@ -523,7 +517,7 @@ export default function Processes({ metrics, onRefresh }) {
                 <span className="lbl proof__l">RESIDENT SET</span>
               </div>
               <div>
-                <span className="proof__n">{selectedProc.threads ?? 1}</span>
+                <span className="proof__n">{selectedProc.threads ?? '—'}</span>
                 <span className="lbl proof__l">THREADS</span>
               </div>
             </div>
@@ -571,7 +565,7 @@ export default function Processes({ metrics, onRefresh }) {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <span className="stamp stamp--confirmed">TERMINATION ACKNOWLEDGED</span>
                   <button type="button" className="btn btn--clay" onClick={handleCloseModal}>
-                    CLOSE DOSSIER
+                    Close details
                   </button>
                 </div>
               ) : confirmKill ? (
@@ -632,7 +626,7 @@ export default function Processes({ metrics, onRefresh }) {
                     className="btn btn--clay"
                     onClick={handleCloseModal}
                   >
-                    <span>ACKNOWLEDGE RECORD</span>
+                    <span>Close details</span>
                   </button>
                 </div>
               )}

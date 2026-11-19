@@ -118,16 +118,16 @@ app.use((req, res, next) => {
 app.get('/api/health', (req, res) =>
   res.json({
     ok: true,
-    service: 'blink-field-dossier-agent',
-    designSystem: 'sivnsh7-field-dossier-v4',
-    architecture: 'brutalist-structure-clay-tactility-paper-skeuomorphism',
-    schemaVersion: 2,
+    service: 'blink-host-agent',
+    designSystem: 'blink-observability-v1',
+    architecture: 'linux-procfs-sysfs-local-observability',
+    schemaVersion: 3,
     host,
     port,
     isLoopback: host === '127.0.0.1' || host === 'localhost',
     intervalMs: interval,
     processControl: true,
-    features: ['procfs', 'sysfs', 'psi', 'security-telemetry', 'host-audit', 'dossier-masking', 'process-termination'],
+    features: ['procfs', 'sysfs', 'psi', 'security-observations', 'host-audit', 'sanitized-export', 'process-termination'],
   })
 );
 
@@ -152,19 +152,24 @@ app.post('/api/processes/:pid/kill', (req, res) => {
 
   const pid = req.params.pid;
   const signal = req.body?.signal || 'SIGTERM';
+  const expectedStartTimeTicks = req.body?.startTimeTicks ?? null;
 
   try {
-    const result = killHostProcess(pid, signal);
+    const result = killHostProcess(pid, signal, expectedStartTimeTicks);
     latest = collect();
     res.json({ ok: true, result });
   } catch (err) {
+    const identityUnverified = err.message.includes('Unable to verify process identity') ||
+      err.message.includes('Unable to parse process identity');
+    const missingIdentity = err.message.includes('start-time identity token is required');
     const isForbidden =
       err.message.includes('Permission denied') ||
       err.message.includes('kernel task') ||
       err.message.includes('Self-termination') ||
       err.message.includes('PID 1');
     const isNotFound = err.message.includes('does not exist') || err.message.includes('not found');
-    const statusCode = isForbidden ? 403 : isNotFound ? 404 : 400;
+    const identityChanged = err.message.includes('Process identity changed');
+    const statusCode = identityChanged || identityUnverified || missingIdentity ? 409 : isForbidden ? 403 : isNotFound ? 404 : 400;
     res.status(statusCode).json({ ok: false, error: err.message });
   }
 });

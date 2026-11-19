@@ -1,137 +1,31 @@
-# Blink // Field Dossier — Linux Host Telemetry & Process Controller
+# Blink — Linux Host Observability
 
-[![npm version](https://img.shields.io/npm/v/@sivnsh7/blink.svg?style=flat-square&color=c23b22)](https://www.npmjs.com/package/@sivnsh7/blink)
-[![License: MIT](https://img.shields.io/badge/License-MIT-black.svg?style=flat-square)](https://opensource.org/licenses/MIT)
-[![Node.js](https://img.shields.io/badge/Node.js-20+-brightgreen.svg?style=flat-square)](https://nodejs.org/)
-[![Linux](https://img.shields.io/badge/Platform-Linux%20Kernel%204.20+-orange.svg?style=flat-square)](https://kernel.org/)
+Blink is a local-first dashboard for monitoring one Linux host. It reads kernel
+telemetry from procfs and sysfs, streams snapshots to a React interface, exposes
+process inventory and guarded process signaling, and provides PSI and kernel
+security observations.
 
-A local-first, low-overhead Linux host telemetry, kernel security audit, and process management dashboard. Built with React 19, Vite, Express, and WebSocket, sampling Linux virtual filesystems (`/proc`, `/sys`) with zero external charting bloat, brutalist precision, and classified redaction.
+## Product workspace
 
-<p align="center">
-  <img src="docs/screenshots/blink-field-dossier-overview.png" alt="Blink // Field Dossier — Linux Host Telemetry Interface" width="100%">
-</p>
+Blink is organized into five focused workspaces:
 
----
+- **Overview** — current resource summary, short-lived in-session trends, host
+  metadata, sampled processes and privacy-aware export.
+- **Processes** — searchable process inventory, privilege classification,
+  sorting, filtering, process details and confirmed signal controls.
+- **Performance** — CPU, memory, swap, storage and network measurements.
+- **Hardware** — graphics, thermal sensors, fans and battery information when
+  exposed by the Linux drivers.
+- **Diagnostics** — Linux Pressure Stall Information (PSI), kernel security
+  observations and a heuristic assessment with evaluated-check coverage.
 
-## Quick Start (Run Instantly)
+The interface includes light/dark themes, visual masking, responsive layouts and
+legacy URL redirects for the previous hardware pages.
 
-Run without installation via `npx`:
+## Quick start
 
-```bash
-npx @sivnsh7/blink
-```
+Requirements: Linux, Node.js 20 or newer, and npm.
 
-Or install globally:
-
-```bash
-npm install -g @sivnsh7/blink
-blink
-```
-
-Open your browser to `http://127.0.0.1:3002`.
-
----
-
-## Aesthetic Identity: Sivnsh7 "Field Dossier" Design Language
-
-Blink is designed around the tactile **Sivnsh7 "Field Dossier"** visual language—departing from modern SaaS flat design and neo-cyberpunk tropes to deliver an authoritative, investigative instrument:
-
-- **Brutalist Structure & Zero-Blur Elevation:** Hard black `2.5px` borders with crisp offset directional drop-shadows (`3px`, `6px`, `9px`) and zero blur, simulating physical stacked cards on a workbench.
-- **Paper Skeuomorphism:** Ivory linen (`#F1EBDC`) light canvas transitioning to pitch-black AMOLED (`#000000`) dark mode, procedural dual radial-gradient paper grain, and skeuomorphic folded corner cards (`.card--fold`).
-- **Tactile Clay & Lacquer Controls:** Signature lacquer-red CTA plates with inset bevel highlights and active press depressions.
-- **Classified Redaction Motif:** Redaction bars (`.redact[data-note]`) masking sensitive PIDs, system hostnames, and network addresses, backed by a global reveal registry and screen-reader accessibility filters.
-- **3D Struck-Brass Hero Masthead:** Real-time pointer parallax tilt, Euclidean proximity lift, and asynchronous Katakana scramble glitch loop running on pure CSS transforms and lightweight requestAnimationFrame.
-- **Typographic Discipline:** Strict three-tier hierarchy combining **Bricolage Grotesque** (editorial display mastheads), **Space Grotesk** (body and subheads), and **IBM Plex Mono** (tabular metadata, proof strips, coordinates, and status stamps).
-
----
-
-## Capabilities & Architecture
-
-```mermaid
-graph TD
-    subgraph Host["Linux Kernel Interfaces"]
-        P1["/proc/stat & /proc/cpuinfo"]
-        P2["/proc/meminfo"]
-        P3["/proc/diskstats & /sys/block"]
-        P4["/proc/mounts & statfs"]
-        P5["/proc/net/dev & /sys/class/net"]
-        P6["/proc/pressure (CPU, Memory, I/O)"]
-        P7["/proc/[pid]/stat & /proc/[pid]/statm"]
-        P8["/proc/sys/kernel (ASLR, Entropy)"]
-    end
-
-    subgraph Server["Blink Local Daemon (Node.js)"]
-        C["Metrics Sampler (1.2s Cadence)"]
-        A["Pure Audit Evaluator (getHostAudit)"]
-        K["Safe Process Signaling (process.kill)"]
-        WS["WebSocket Server (64KB Capped)"]
-        REST["REST Endpoints (/api/*)"]
-    end
-
-    subgraph Client["Field Dossier Frontend (React 19)"]
-        UI1["Overview Dossier (IsoBars & Ring3D)"]
-        UI2["Process Registry & Kill Controls"]
-        UI3["Subsystem Dossiers (CPU, Mem, Disk, Net)"]
-        UI4["Security & PSI Stall Audit"]
-        RED["Redaction Context & Sanitized Export"]
-    end
-
-    Host --> Server
-    Server -->|WebSocket Stream & REST| Client
-```
-
-### 1. Linux Pressure Stall Information (PSI)
-Real-time monitoring of `/proc/pressure/cpu`, `/proc/pressure/memory`, and `/proc/pressure/io`. Tracks `avg10`, `avg60`, `avg300`, and cumulative stall microseconds. Accurately reports `supported: false` on kernels lacking PSI compilation without fabricating misleading `NOMINAL` states.
-
-### 2. Physical Disks vs Filesystems Separation
-Physical block storage devices (`/sys/block` entries like `sda`, `nvme0n1`, `vda`) and mounted filesystem partitions (`/proc/mounts`) are partitioned into independent data models. Eliminates capacity double-counting and identifies the primary root filesystem (`isRoot: true`).
-
-### 3. Truthful Memory Instrumentation
-Memory utilization is computed as `MemTotal - MemAvailable`, correctly accounting for reclaimable page cache and slab memory. Virtual address space commitments (`Committed_AS` and `CommitLimit`) are tracked independently.
-
-### 4. Process Registry & Safe Termination
-Monitors the top 100 active tasks sampled from `/proc/[pid]/stat`. Provides interactive process termination with:
-- **System PID 1 & Non-Positive PID Protection:** Terminating init/systemd (PID 1) or non-positive PIDs is strictly prohibited.
-- **Daemon Self-Protection:** Terminating the Blink server process itself is rejected.
-- **Kernel Task Immunity:** Detects `PF_KTHREAD` flags and `kthreadd` (PPID 2) parentage to block termination attempts against kernel threads.
-- **Strict Signal Whitelist:** Supports `SIGTERM` (Graceful), `SIGKILL` (Force), and `SIGINT`.
-- **Cross-Site Request Forgery (CSRF) Guard:** Validates the browser `Origin` header against `allowedOrigins` on mutating HTTP calls.
-
-### 5. Presentation Redaction & Sanitized Exports
-Global masking toggle has strict authority over per-item reveals. When exporting telemetry snapshots to `.json`, Blink automatically sanitizes hostnames, scrubs non-kernel process identifiers to `proc-[pid]`, redacts command lines, and masks MAC addresses.
-
----
-
-## Security & Operational Scope
-
-> [!IMPORTANT]
-> **Read-Only Default & Local-First Monitoring:** Blink is designed for local developer workstation observability and Linux performance analysis.
-> 
-> - **Loopback Isolation:** The server binds to `127.0.0.1` by default. While `HOST` can be overridden via environment variables, endpoints do not implement enterprise authentication. Exposing Blink on public networks without an authenticating reverse proxy (like Nginx, Caddy, or WireGuard) is strongly discouraged.
-> - **Zero Shell Spawning:** Telemetry collectors never spawn shell commands (`execSync`, `sh`, `awk`, `grep`) during polling loops. All reads are performed directly on `/proc` and `/sys` virtual filesystems.
-> - **Presentation-Layer Redaction:** Redaction features prevent accidental over-the-shoulder disclosure and unscrubbed file sharing; they do not represent cryptographic boundary isolation.
-
----
-
-## API Endpoints
-
-| Method | Path | Description | Safety Constraints |
-|---|---|---|---|
-| `GET` | `/api/health` | Agent health, capabilities, and schema metadata | Open |
-| `GET` | `/api/snapshot` | Complete host telemetry snapshot (CPU, memory, storage, network, processes, PSI) | Read-only |
-| `GET` | `/api/audit` | Pure heuristic security & stability scorecard without mutating sampling baselines | Read-only |
-| `POST` | `/api/processes/:pid/kill` | Send POSIX signals (`SIGTERM`, `SIGKILL`, `SIGINT`) to a process | Origin-checked, PID 1 & Kernel protected |
-| `WS` | `/ws` | Real-time continuous telemetry stream (1.2s interval) | Exact Origin checked, 64 KB payload cap |
-
----
-
-## Development & Build
-
-### Prerequisites
-- Linux OS with kernel 4.20+ (Arch Linux, Ubuntu, Debian, Fedora, RHEL, etc.)
-- Node.js 20+ and npm
-
-### Local Development Setup
 ```bash
 git clone https://github.com/sivnsh7/blink.git
 cd blink
@@ -139,41 +33,93 @@ npm install
 npm run dev
 ```
 
-Vite dev server will start on `http://127.0.0.1:5173` with proxying to the backend daemon on `127.0.0.1:3002`.
+The Vite client runs on `http://127.0.0.1:5173`; the local agent defaults to
+`http://127.0.0.1:3002`.
 
-### Production Build & Verification
+For a production build:
+
 ```bash
-# Run unit test suite
 npm test
-
-# Build client production bundle into server/public
 npm run build
-
-# Start production server
 npm start
 ```
 
----
+## Architecture
 
-## State & Lifecycle Model
+- **Client:** React 19 and Vite.
+- **Agent:** Node.js, Express and WebSocket.
+- **Telemetry:** direct reads of Linux virtual filesystems; no shell pipelines in
+  the regular sampling path.
+- **Transport:** WebSocket updates with HTTP snapshot fallback when the stream
+  is unavailable.
+- **Charts:** compact SVG components built in the repository, with no large
+  charting dependency.
+- **History:** recent telemetry samples are held in the active browser session;
+  the application is not a persistent time-series database.
 
-Blink's explicit client and server state transitions, invariants, and test coverage are documented in [docs/STATE-MACHINES.md](docs/STATE-MACHINES.md).
+## Telemetry and diagnostics
 
----
+The agent collects CPU counters and frequency, memory, block devices and mounted
+filesystems, network throughput, process statistics, graphics data, hardware
+sensors, battery data, PSI and selected kernel security settings. Unsupported or
+unreadable metrics are reported as unavailable instead of being presented as
+a measured zero.
 
-## Contributors & Acknowledgements
+The heuristic diagnostics score is an observation aid, not a security
+certification. It reports evaluated-check coverage and recommendations derived
+from the available snapshot.
 
-Blink was engineered and audited through a multi-model collaborative development effort:
+## Process safety
 
-- **[Sivnsh7](https://github.com/sivnsh7)** — Creator, Lead Architect & Author of the Sivnsh7 "Field Dossier" Design Language.
-- **Google Antigravity** — Advanced Agentic AI Engineering, Deep Audit Remediation, Core Linux Collectors & Safety Guardrails.
-- **Claude (Anthropic)** — Reverse Engineering, Brutalist UI Implementation & Typographic Structure.
-- **NVIDIA Nemotron** — High-Performance Host Telemetry & Hardware Systems Optimization.
-- **Agnes** — Security Review, Linux PSI Kernel Calibration & Quality Assurance.
-- **Open Source Community** — Linux kernel sysfs/procfs documentation, testing, and feedback.
+Process signaling is a privileged, destructive operation. Blink:
+- Rejects invalid/non-positive PIDs and PID 1.
+- Blocks kernel-task termination and self-termination of the Blink agent.
+- Allows only SIGTERM, SIGKILL and SIGINT.
+- Requires explicit confirmation in the interface.
+- Checks the sampled process start-time token before sending a signal, reducing
+  the chance that a recycled PID is mistaken for the process the user inspected.
+- Validates browser Origin for mutating requests when an Origin header is sent.
 
----
+The start-time check is a second identity check before signaling, not an atomic
+kernel pidfd operation; a narrow time-of-check/time-of-use window remains.
+
+## Security boundary
+
+> **Blink is intended for local workstation use.**
+
+The server binds to `127.0.0.1` by default. It does not provide user
+authentication or authorization for remote users. Overriding `HOST` to a
+non-loopback address exposes telemetry and process-control endpoints without
+enterprise authentication. Do not expose it to an untrusted network; use a
+proper authenticated access layer and network isolation before any remote use.
+
+Visual masking and masked export reduce accidental disclosure. They do not
+replace authentication, authorization, encryption or operating-system access
+controls.
+
+## API
+
+| Method | Path | Description |
+|---|---|---|
+| GET | `/api/health` | Agent health and capability metadata |
+| GET | `/api/snapshot` | Latest CPU, memory, storage, network, process and hardware snapshot |
+| GET | `/api/audit` | Heuristic evaluation of the current snapshot |
+| POST | `/api/processes/:pid/kill` | Confirmed process signal operation |
+| WS | `/ws` | Live telemetry frames |
+
+The process signal endpoint accepts a JSON body with `signal` and the sampled
+`startTimeTicks` identity token. HTTP 409 means that the PID now refers to a
+different process than the one inspected; refresh the process list before
+retrying.
+
+## Engineering documentation
+
+- [Redesign plan and component contract](docs/REDESIGN-PLAN.md)
+- [Client/server state-machine inventory](docs/STATE-MACHINES.md)
+
+The CI workflow runs dependency installation, the automated test suite and the
+production build on pushes to main and pull requests targeting main.
 
 ## License
 
-[MIT License](LICENSE.txt) © 2026 Sivnsh7 and Blink contributors.
+MIT. See [LICENSE.txt](LICENSE.txt).
