@@ -1,16 +1,20 @@
 import React from 'react';
 import Icon from './Icon';
 import { useRedaction } from '../context/RedactionContext';
+import { telemetryStatusView } from '../lib/stateMachines.js';
 
 export default function Topbar({
   title, connected, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
   snapshotState = 'empty',
 }) {
   const { redactionMode, toggleRedactionMode } = useRedaction();
-  const statusLabel = connected ? 'Live stream' : snapshotState === 'fresh' ? 'Polling fallback' :
-    snapshotState === 'stale' ? 'Data is stale' : snapshotState === 'unavailable' ? 'Agent unavailable' : 'Connecting';
-  const statusClass = connected || snapshotState === 'fresh' ? 'stamp--live' :
-    snapshotState === 'stale' ? 'stamp--wip' : snapshotState === 'unavailable' ? 'stamp--hypothesis' : 'stamp--idle';
+  const status = telemetryStatusView(connectionState, snapshotState);
+  const statusClass = {
+    live: 'stamp--live',
+    warning: 'stamp--wip',
+    danger: 'stamp--hypothesis',
+    idle: 'stamp--idle',
+  }[status.tone];
 
   return (
     <header className="topbar">
@@ -26,9 +30,9 @@ export default function Topbar({
       </div>
 
       <div className="topbar-right">
-        <span className={`stamp ${statusClass}`} role="status" aria-live="polite">
-          <span className={`dot ${connected ? 'dot--live' : ''}`} aria-hidden="true" />
-          {statusLabel}
+        <span className={`stamp ${statusClass}`} role="status" aria-live="polite" title={status.label}>
+          <span className={`dot ${status.tone === 'live' ? 'dot--live' : ''}`} aria-hidden="true" />
+          {status.label}
         </span>
         <button type="button" className="btn btn--paper btn--sm" onClick={toggleRedactionMode}
           aria-pressed={redactionMode} title="Toggle visual masking">
