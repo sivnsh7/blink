@@ -10,7 +10,7 @@ security observations.
 Blink is organized into five focused workspaces:
 
 - **Overview** — current resource summary, short-lived in-session trends, host
-  metadata, sampled processes and privacy-aware export.
+  metadata, sampled processes and confirmed JSON export.
 - **Processes** — searchable process inventory, privilege classification,
   sorting, filtering, process details and confirmed signal controls.
 - **Performance** — CPU, memory, swap, storage and network measurements.
@@ -19,8 +19,9 @@ Blink is organized into five focused workspaces:
 - **Diagnostics** — Linux Pressure Stall Information (PSI), kernel security
   observations and a heuristic assessment with evaluated-check coverage.
 
-The interface includes light/dark themes, visual masking, responsive layouts and
-legacy URL redirects for the previous hardware pages.
+The interface includes light/dark themes, a responsive workspace and legacy URL
+redirects for the previous hardware pages. Host and process identifiers are shown
+as collected; there is no presentation-level masking switch.
 
 ## Quick start
 
@@ -93,9 +94,11 @@ non-loopback address exposes telemetry and process-control endpoints without
 enterprise authentication. Do not expose it to an untrusted network; use a
 proper authenticated access layer and network isolation before any remote use.
 
-Visual masking and masked export reduce accidental disclosure. They do not
-replace authentication, authorization, encryption or operating-system access
-controls.
+The dashboard displays host, network and process identifiers directly. JSON
+export requires an explicit confirmation because the file can contain those
+identifiers. Do not share screenshots or exported snapshots without reviewing
+them first. This does not replace authentication, authorization, encryption or
+operating-system access controls.
 
 ## API
 
