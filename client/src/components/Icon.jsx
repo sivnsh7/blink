@@ -117,6 +117,7 @@ const ICONS = {
       <path d="M12 7.8V12l2.8 1.7" />
     </>
   ),
+  download: <path d="M12 3v12m-4-4 4 4 4-4M5 19h14" />,
   search: (
     <>
       <circle cx="11" cy="11" r="6" />
