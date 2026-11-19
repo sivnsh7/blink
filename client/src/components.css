@@ -1,7 +1,7 @@
 *, *::before, *::after { box-sizing: border-box; }
 html { min-width: 320px; scroll-behavior: smooth; scroll-padding-top: 88px; -webkit-text-size-adjust: 100%; }
 body {
-  margin: 0; min-height: 100vh; overflow-x: clip; background: var(--canvas); color: var(--text);
+  margin: 0; min-height: 100vh; background: var(--canvas); color: var(--text);
   font: 400 16px/1.55 var(--font-body); letter-spacing: -.012em;
   -webkit-font-smoothing: antialiased; text-rendering: optimizeLegibility;
   transition: background-color var(--speed) ease, color var(--speed) ease;
@@ -347,7 +347,6 @@ td .btn { min-height: 34px; }
   .topbar { padding: 8px 12px; gap: 8px; }
   .topbar-left, .topbar-right { gap: 5px; }
   .crumbs strong { max-width: 22vw; }
-  .topbar-right .icon-btn[aria-label="Refresh host snapshot"] { display: none; }
   .topbar-right .stamp {
     width: 8px; min-width: 8px; max-width: 8px; min-height: 8px;
     padding: 0; border: 0; background: transparent; font-size: 0;
