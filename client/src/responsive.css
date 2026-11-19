@@ -20,7 +20,6 @@ html {
 
 body {
   min-width: 320px;
-  overflow-x: clip;
   overscroll-behavior-x: none;
 }
 
