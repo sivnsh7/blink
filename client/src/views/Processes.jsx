@@ -10,7 +10,7 @@ import {
 
 const SORTS = [
   { key: 'cpu', label: 'CPU %' },
-  { key: 'mem', label: 'MEM %' },
+  { key: 'mem', label: 'RSS' },
   { key: 'pid', label: 'PID' },
   { key: 'name', label: 'NAME' },
 ];
@@ -325,9 +325,16 @@ export default function Processes({ metrics, onRefresh }) {
       return true;
     });
 
+    const compareMeasuredDescending = (a, b, field) => {
+      const left = isNum(a[field]) ? Number(a[field]) : null;
+      const right = isNum(b[field]) ? Number(b[field]) : null;
+      if (left === null) return right === null ? 0 : 1;
+      if (right === null) return -1;
+      return right - left;
+    };
     const by = {
-      cpu: (a, b) => (b.cpuPercent || 0) - (a.cpuPercent || 0),
-      mem: (a, b) => (b.rss || 0) - (a.rss || 0),
+      cpu: (a, b) => compareMeasuredDescending(a, b, 'cpuPercent'),
+      mem: (a, b) => compareMeasuredDescending(a, b, 'rss'),
       pid: (a, b) => a.pid - b.pid,
       name: (a, b) => String(a.name).localeCompare(String(b.name)),
     }[sort];
@@ -335,8 +342,12 @@ export default function Processes({ metrics, onRefresh }) {
     return [...filtered].sort(by);
   }, [all, deferredQuery, sort, filter]);
 
-  const totalCpu = all.reduce((s, p) => s + (Number(p.cpuPercent) || 0), 0);
-  const totalMem = all.reduce((s, p) => s + (Number(p.rss) || 0), 0);
+  const totalCpu = all.length > 0 && all.every((p) => isNum(p.cpuPercent))
+    ? all.reduce((sum, p) => sum + Number(p.cpuPercent), 0)
+    : null;
+  const totalMem = all.length > 0 && all.every((p) => isNum(p.rss))
+    ? all.reduce((sum, p) => sum + Number(p.rss), 0)
+    : null;
   const rootCount = all.filter((p) => p.privilegeClass === 'root-sys' || p.isPrivileged || p.uid === 0).length;
 
   return (
@@ -348,12 +359,12 @@ export default function Processes({ metrics, onRefresh }) {
           <span className="lbl proof__l">TOP {all.length} SAMPLED ({totalSeen} TOTAL)</span>
         </div>
         <div>
-          <span className="proof__n">{totalCpu.toFixed(1)}%</span>
-          <span className="lbl proof__l">CUMULATIVE CPU LOAD</span>
+          <span className="proof__n">{isNum(totalCpu) ? `${totalCpu.toFixed(1)}%` : '—'}</span>
+          <span className="lbl proof__l">SUM OF SAMPLED CPU %</span>
         </div>
         <div>
           <span className="proof__n">{bytes(totalMem)}</span>
-          <span className="lbl proof__l">COMMITTED RSS RESIDENT</span>
+          <span className="lbl proof__l">SUM OF SAMPLED RSS</span>
         </div>
         <div>
           <span className="proof__n">{rootCount}</span>
@@ -365,7 +376,7 @@ export default function Processes({ metrics, onRefresh }) {
         <div className="card-head">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.3rem' }}>
-              <span className="stamp stamp--live">PROC TELEMETRY</span>
+              <span className="stamp stamp--idle">PROC TELEMETRY</span>
               <h2 className="card-title">Process Security & Resource Registry</h2>
             </div>
             <p className="card-note">

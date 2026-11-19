@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import BlinkMark from './BlinkMark';
 import Redacted from './Redacted';
@@ -10,23 +10,97 @@ function initials(name) {
 
 export default function Sidebar({
   groups, view, onNavigate, system, processCount, collapsed, mobileOpen,
-  connected, onToggleCollapse, onDisconnect, onReconnect,
+  connectionState = 'connecting', onToggleCollapse, onReconnect, onDisconnect, onClose,
 }) {
   const [identityOpen, setIdentityOpen] = useState(false);
+  const [mobileViewport, setMobileViewport] = useState(
+    () => window.matchMedia?.('(max-width: 900px)').matches ?? false
+  );
+  const railRef = useRef(null);
+  const returnFocusRef = useRef(null);
   const hostname = system?.hostname || 'Local host';
   const compact = collapsed && !mobileOpen;
+  const paused = connectionState === 'paused';
+
+  // A translated-offscreen drawer must also leave the tab order and accessibility tree.
+  useEffect(() => {
+    const media = window.matchMedia('(max-width: 900px)');
+    const update = () => setMobileViewport(media.matches);
+    update();
+    if (media.addEventListener) media.addEventListener('change', update);
+    else media.addListener(update);
+    return () => {
+      if (media.removeEventListener) media.removeEventListener('change', update);
+      else media.removeListener(update);
+    };
+  }, []);
+
+  // Keep keyboard focus inside the mobile drawer and return it to its opener on close.
+  useEffect(() => {
+    if (!mobileViewport) return undefined;
+
+    if (!mobileOpen) {
+      if (returnFocusRef.current?.isConnected) returnFocusRef.current.focus();
+      returnFocusRef.current = null;
+      return undefined;
+    }
+
+    returnFocusRef.current = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const getFocusable = () => Array.from(
+      railRef.current?.querySelectorAll(
+        'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+      ) || []
+    ).filter((element) => element.getClientRects().length > 0);
+
+    getFocusable()[0]?.focus();
+
+    const trapFocus = (event) => {
+      if (event.key !== 'Tab') return;
+      const focusable = getFocusable();
+      if (!focusable.length) return;
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      if (event.shiftKey && (document.activeElement === first || !railRef.current?.contains(document.activeElement))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener('keydown', trapFocus);
+    return () => {
+      document.removeEventListener('keydown', trapFocus);
+      document.body.style.overflow = previousBodyOverflow;
+    };
+  }, [mobileOpen, mobileViewport]);
 
   return (
-    <aside className={`rail ${compact ? 'is-collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`} aria-label="Main navigation">
+    <aside
+      ref={railRef}
+      id="main-navigation"
+      className={`rail ${compact ? 'is-collapsed' : ''} ${mobileOpen ? 'mobile-open' : ''}`}
+      aria-label="Main navigation"
+      aria-hidden={mobileViewport && !mobileOpen ? true : undefined}
+      inert={mobileViewport && !mobileOpen}
+    >
       <div className="brand-section">
         <BlinkMark size={34} />
         <div className="brand-text">
           <div className="brand-title">Blink</div>
           <div className="brand-sub">HOST OBSERVABILITY</div>
         </div>
-        <button type="button" className="rail-collapse" onClick={onToggleCollapse}
-          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'} aria-expanded={!collapsed}>
-          <Icon name={collapsed ? 'expand' : 'collapse'} size={15} />
+        <button
+          type="button"
+          className="rail-collapse"
+          onClick={mobileViewport ? onClose : onToggleCollapse}
+          aria-label={mobileViewport ? 'Close navigation menu' : collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          aria-expanded={mobileViewport ? mobileOpen : !collapsed}
+        >
+          <Icon name={mobileViewport ? 'close' : collapsed ? 'expand' : 'collapse'} size={15} />
         </button>
       </div>
 
@@ -45,7 +119,7 @@ export default function Sidebar({
             <div><span>Kernel</span><b>{system?.kernel || '—'}</b></div>
             <div><span>Logical CPUs</span><b>{system?.cpus ?? '—'}</b></div>
             <div><span>Memory</span><b>{system?.totalMemory ? `${(system.totalMemory / 1024 ** 3).toFixed(1)} GiB` : '—'}</b></div>
-            <div><span>Agent</span><b>{connected ? 'Connected' : 'Disconnected'}</b></div>
+            <div><span>Agent</span><b>{connectionState === 'streaming' ? 'Live stream' : connectionState === 'paused' ? 'Paused' : connectionState === 'polling' ? 'HTTP polling' : 'Reconnecting'}</b></div>
           </div>
         )}
       </div>
@@ -59,7 +133,9 @@ export default function Sidebar({
               return (
                 <a href={`#/${key}`} key={key} className={`nav-item ${active ? 'is-active' : ''}`}
                   onClick={event => { event.preventDefault(); onNavigate(key); }}
-                  aria-current={active ? 'page' : undefined} title={compact ? label : undefined}>
+                  aria-label={label}
+                  aria-current={active ? 'page' : undefined}
+                  title={compact ? label : undefined}>
                   <Icon name={icon} size={17} />
                   <span>{label}</span>
                   {key === 'processes' && processCount != null && <i className="nav-count">{processCount}</i>}
@@ -71,13 +147,13 @@ export default function Sidebar({
       </nav>
 
       <div className="rail-footer">
-        {connected ? (
-          <button type="button" className="foot-action" onClick={onDisconnect}>
-            <Icon name="pause" size={16} /><span>Pause telemetry</span>
+        {paused ? (
+          <button type="button" className="foot-action is-reconnect" onClick={onReconnect}>
+            <Icon name="refresh" size={16} /><span>Resume telemetry</span>
           </button>
         ) : (
-          <button type="button" className="foot-action is-reconnect" onClick={onReconnect}>
-            <Icon name="refresh" size={16} /><span>Reconnect agent</span>
+          <button type="button" className="foot-action" onClick={onDisconnect}>
+            <Icon name="pause" size={16} /><span>Pause telemetry</span>
           </button>
         )}
       </div>

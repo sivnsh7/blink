@@ -119,6 +119,56 @@ export function telemetryReducer(state, event) {
   }
 }
 
+/**
+ * Map transport and sample freshness onto one truthful operator-facing status.
+ * These dimensions are independent: an open socket does not prove fresh data.
+ */
+export function telemetryStatusView(connection, snapshot) {
+  if (connection === 'paused') {
+    return { label: snapshot === 'stale' ? 'Paused · last sample stale' : 'Telemetry paused', tone: 'idle' };
+  }
+  if (connection === 'stopped') {
+    return { label: 'Telemetry stopped', tone: 'idle' };
+  }
+
+  if (connection === 'streaming') {
+    if (snapshot === 'fresh') return { label: 'Live stream', tone: 'live' };
+    if (snapshot === 'stale') return { label: 'Stream connected · data stale', tone: 'warning' };
+    if (snapshot === 'unavailable') return { label: 'Stream connected · snapshot unavailable', tone: 'warning' };
+    return { label: 'Stream connected · awaiting sample', tone: 'idle' };
+  }
+
+  if (connection === 'polling') {
+    if (snapshot === 'fresh') return { label: 'HTTP polling', tone: 'live' };
+    if (snapshot === 'stale') return { label: 'Data stale · HTTP polling', tone: 'warning' };
+    if (snapshot === 'unavailable') return { label: 'Agent unavailable', tone: 'danger' };
+    return { label: 'Waiting for agent snapshot', tone: 'idle' };
+  }
+
+  if (connection === 'unsupported') {
+    if (snapshot === 'fresh') return { label: 'HTTP polling · WebSocket unavailable', tone: 'live' };
+    if (snapshot === 'stale') return { label: 'HTTP fallback · data stale', tone: 'warning' };
+    if (snapshot === 'unavailable') return { label: 'Agent unavailable', tone: 'danger' };
+    return { label: 'WebSocket unavailable · waiting for data', tone: 'warning' };
+  }
+
+  if (connection === 'retrying') {
+    if (snapshot === 'fresh') return { label: 'Reconnecting · last sample fresh', tone: 'warning' };
+    if (snapshot === 'stale') return { label: 'Reconnecting · data stale', tone: 'warning' };
+    if (snapshot === 'unavailable') return { label: 'Reconnecting · no data', tone: 'warning' };
+    return { label: 'Reconnecting', tone: 'warning' };
+  }
+
+  if (connection === 'connecting') {
+    if (snapshot === 'fresh') return { label: 'Connecting · last sample fresh', tone: 'warning' };
+    if (snapshot === 'stale') return { label: 'Connecting · data stale', tone: 'warning' };
+    if (snapshot === 'unavailable') return { label: 'Connecting · agent unavailable', tone: 'warning' };
+    return { label: 'Connecting', tone: 'idle' };
+  }
+
+  return { label: 'Agent status unknown', tone: 'idle' };
+}
+
 export function createAuditState() {
   return { phase: 'loading', audit: null, error: null };
 }

@@ -1,21 +1,25 @@
 import React from 'react';
 import Icon from './Icon';
 import { useRedaction } from '../context/RedactionContext';
+import { telemetryStatusView } from '../lib/stateMachines.js';
 
 export default function Topbar({
-  title, connected, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
+  title, connectionState, navOpen, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
   snapshotState = 'empty',
 }) {
   const { redactionMode, toggleRedactionMode } = useRedaction();
-  const statusLabel = connected ? 'Live stream' : snapshotState === 'fresh' ? 'Polling fallback' :
-    snapshotState === 'stale' ? 'Data is stale' : snapshotState === 'unavailable' ? 'Agent unavailable' : 'Connecting';
-  const statusClass = connected || snapshotState === 'fresh' ? 'stamp--live' :
-    snapshotState === 'stale' ? 'stamp--wip' : snapshotState === 'unavailable' ? 'stamp--hypothesis' : 'stamp--idle';
+  const status = telemetryStatusView(connectionState, snapshotState);
+  const statusClass = {
+    live: 'stamp--live',
+    warning: 'stamp--wip',
+    danger: 'stamp--hypothesis',
+    idle: 'stamp--idle',
+  }[status.tone];
 
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button type="button" className="icon-btn menu-btn" onClick={onOpenNav} aria-label="Open navigation menu">
+        <button type="button" className="icon-btn menu-btn" onClick={onOpenNav} aria-label="Open navigation menu" aria-expanded={Boolean(navOpen)} aria-controls="main-navigation">
           <Icon name="menu" size={18} />
         </button>
         <div className="crumbs">
@@ -26,16 +30,23 @@ export default function Topbar({
       </div>
 
       <div className="topbar-right">
-        <span className={`stamp ${statusClass}`} role="status" aria-live="polite">
-          <span className={`dot ${connected ? 'dot--live' : ''}`} aria-hidden="true" />
-          {statusLabel}
+        <span className={`stamp ${statusClass}`} role="status" aria-live="polite" title={status.label}>
+          <span className={`dot ${status.tone === 'live' ? 'dot--live' : ''}`} aria-hidden="true" />
+          {status.label}
         </span>
         <button type="button" className="btn btn--paper btn--sm" onClick={toggleRedactionMode}
           aria-pressed={redactionMode} title="Toggle visual masking">
           <Icon name={redactionMode ? 'eye-off' : 'eye'} size={15} />
           <span className="mask-label">{redactionMode ? 'Masked' : 'Visible'}</span>
         </button>
-        <button type="button" className="icon-btn" onClick={onRefresh} aria-label="Refresh host snapshot" title="Refresh snapshot">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onRefresh}
+          disabled={connectionState === 'paused'}
+          aria-label="Refresh host snapshot"
+          title={connectionState === 'paused' ? 'Resume telemetry to refresh the host snapshot' : 'Refresh snapshot'}
+        >
           <Icon name="refresh" size={16} />
         </button>
         <button type="button" className="icon-btn" onClick={onRetry} aria-label="Reconnect live telemetry" title="Reconnect live stream">

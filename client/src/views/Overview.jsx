@@ -91,7 +91,7 @@ export default function Overview({ metrics, history, onOpen, onRefresh }) {
     <div className="stack">
       <section className="hero-banner overview-welcome">
         <div>
-          <div className="eyebrow">HOST STATUS <span className={`stamp ${metrics?.timestamp ? 'stamp--live' : 'stamp--idle'}`}>{metrics?.timestamp ? 'DATA RECEIVED' : 'WAITING FOR DATA'}</span></div>
+          <div className="eyebrow">HOST STATUS <span className="stamp stamp--idle">{metrics?.timestamp ? 'LAST SAMPLE AVAILABLE' : 'WAITING FOR DATA'}</span></div>
           <h2><Redacted note="HOST NAME">{system.hostname || 'Your Linux host'}</Redacted></h2>
           <p>
             {system.distro || 'Linux'}{system.kernel ? ` · Kernel ${system.kernel}` : ''}.

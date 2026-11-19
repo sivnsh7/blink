@@ -68,7 +68,7 @@ function initialCollapsed() {
 
 export default function App() {
   const {
-    metrics, history, connected, connectionState, snapshotState, error,
+    metrics, history, connectionState, snapshotState, error,
     reconnect, disconnect, refresh,
   } = useMetrics();
   const [navigation, dispatchNavigation] = useReducer(
@@ -143,10 +143,11 @@ export default function App() {
           processCount={processCount}
           collapsed={collapsed}
           mobileOpen={mobileOpen}
-          connected={connected}
+          connectionState={connectionState}
           onToggleCollapse={() => setCollapsed(value => !value)}
           onDisconnect={disconnect}
           onReconnect={reconnect}
+          onClose={() => dispatchNavigation({ type: 'CLOSE_DRAWER' })}
         />
 
         {mobileOpen && (
@@ -157,9 +158,9 @@ export default function App() {
         <main id="main-content" className="workspace">
           <Topbar
             title={current.title}
-            connected={connected}
             snapshotState={snapshotState}
             connectionState={connectionState}
+            navOpen={mobileOpen}
             darkMode={dark}
             onToggleTheme={() => setTheme(dark ? 'light' : 'dark')}
             onRetry={reconnect}

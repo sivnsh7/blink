@@ -12,6 +12,7 @@ import {
   redactionReducer,
   routeFromHash,
   telemetryReducer,
+  telemetryStatusView,
 } from './stateMachines.js';
 
 test('navigation resolves only known routes and closes the drawer on navigation', () => {
@@ -217,4 +218,32 @@ test('snapshot expiry cannot downgrade a paused telemetry session', () => {
   state = telemetryReducer(state, { type: 'PAUSE' });
   const paused = state;
   assert.equal(telemetryReducer(state, { type: 'SNAPSHOT_EXPIRED' }), paused);
+});
+
+
+test('telemetry presentation distinguishes stale streams, paused sessions and HTTP fallback', () => {
+  assert.deepEqual(telemetryStatusView('streaming', 'fresh'), {
+    label: 'Live stream',
+    tone: 'live',
+  });
+  assert.deepEqual(telemetryStatusView('streaming', 'stale'), {
+    label: 'Stream connected · data stale',
+    tone: 'warning',
+  });
+  assert.deepEqual(telemetryStatusView('paused', 'fresh'), {
+    label: 'Telemetry paused',
+    tone: 'idle',
+  });
+  assert.deepEqual(telemetryStatusView('polling', 'fresh'), {
+    label: 'HTTP polling',
+    tone: 'live',
+  });
+  assert.deepEqual(telemetryStatusView('unsupported', 'fresh'), {
+    label: 'HTTP polling · WebSocket unavailable',
+    tone: 'live',
+  });
+  assert.deepEqual(telemetryStatusView('retrying', 'stale'), {
+    label: 'Reconnecting · data stale',
+    tone: 'warning',
+  });
 });
