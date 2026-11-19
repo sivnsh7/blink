@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { useMetrics } from './hooks/useMetrics';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
+import Redacted from './components/Redacted';
 import { RedactionProvider } from './context/RedactionContext';
 import Overview from './views/Overview';
 import Processes from './views/Processes';
