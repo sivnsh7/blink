@@ -1,4 +1,5 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
+import { createGlitchState, glitchReducer } from '../lib/stateMachines.js';
 
 const MX_CHARS = 'アイウエオカキクケコサシスセソタチツテトナ0123456789$#%&<>/\\|+=';
 const SCRAMBLE_STEPS = 9;
@@ -7,7 +8,7 @@ const HOLD_MS = 100;
 
 export default function DossierHeroTitle({ text = 'BLINK // DOSSIER', as = 'h1' }) {
   const stageRef = useRef(null);
-  const [glitch, setGlitch] = useState({ idx: -1, char: '' });
+  const [glitch, dispatchGlitch] = useReducer(glitchReducer, undefined, createGlitchState);
   const letters = text.split('');
   const Component = as;
 
@@ -80,51 +81,71 @@ export default function DossierHeroTitle({ text = 'BLINK // DOSSIER', as = 'h1' 
     };
   }, []);
 
-  // 2. Matrix Katakana Scramble Glitch Ambient Loop (stable on [text])
+  // 2. Matrix Katakana Scramble Glitch Ambient Loop (explicit phase machine)
   useEffect(() => {
     const prefersReduced = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (prefersReduced) return;
+    if (prefersReduced) {
+      dispatchGlitch({ type: 'CANCEL' });
+      return undefined;
+    }
 
-    let timeoutId;
-    let intervalId;
+    let cancelled = false;
+    let strikeTimeout = null;
+    let stepInterval = null;
+    let holdTimeout = null;
 
-    const strike = () => {
-      const validIndices = letters
-        .map((ch, i) => (ch.trim() ? i : -1))
-        .filter((i) => i !== -1);
-      if (!validIndices.length) return;
+    const scheduleStrike = (delay) => {
+      strikeTimeout = setTimeout(() => {
+        strikeTimeout = null;
+        if (cancelled) return;
 
-      const targetIdx = validIndices[Math.floor(Math.random() * validIndices.length)];
-      const originalChar = letters[targetIdx];
+        const validIndices = letters
+          .map((character, index) => (character.trim() ? index : -1))
+          .filter((index) => index !== -1);
 
-      setGlitch({ idx: targetIdx, char: originalChar });
-
-      let step = 0;
-      intervalId = setInterval(() => {
-        step++;
-        if (step >= SCRAMBLE_STEPS) {
-          clearInterval(intervalId);
-          setGlitch({ idx: targetIdx, char: originalChar });
-          setTimeout(() => {
-            setGlitch({ idx: -1, char: '' });
-          }, HOLD_MS);
+        if (!validIndices.length) {
+          scheduleStrike(14000);
           return;
         }
-        setGlitch({
-          idx: targetIdx,
-          char: MX_CHARS[Math.floor(Math.random() * MX_CHARS.length)],
-        });
-      }, STEP_MS);
 
-      const nextDelay = 14000 + Math.random() * 14000;
-      timeoutId = setTimeout(strike, nextDelay);
+        const targetIdx = validIndices[Math.floor(Math.random() * validIndices.length)];
+        const originalChar = letters[targetIdx];
+        dispatchGlitch({ type: 'START_STRIKE', idx: targetIdx, originalChar });
+
+        let step = 0;
+        stepInterval = setInterval(() => {
+          if (cancelled) return;
+          step += 1;
+
+          if (step >= SCRAMBLE_STEPS) {
+            clearInterval(stepInterval);
+            stepInterval = null;
+            dispatchGlitch({ type: 'SCRAMBLE_COMPLETE' });
+            holdTimeout = setTimeout(() => {
+              holdTimeout = null;
+              if (!cancelled) dispatchGlitch({ type: 'HOLD_COMPLETE' });
+            }, HOLD_MS);
+            return;
+          }
+
+          dispatchGlitch({
+            type: 'SCRAMBLE_TICK',
+            char: MX_CHARS[Math.floor(Math.random() * MX_CHARS.length)],
+          });
+        }, STEP_MS);
+
+        scheduleStrike(14000 + Math.random() * 14000);
+      }, delay);
     };
 
-    timeoutId = setTimeout(strike, 4500);
+    scheduleStrike(4500);
 
     return () => {
-      clearTimeout(timeoutId);
-      clearInterval(intervalId);
+      cancelled = true;
+      if (strikeTimeout) clearTimeout(strikeTimeout);
+      if (stepInterval) clearInterval(stepInterval);
+      if (holdTimeout) clearTimeout(holdTimeout);
+      dispatchGlitch({ type: 'CANCEL' });
     };
   }, [text]);
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useReducer, useState } from 'react';
 import { useMetrics } from './hooks/useMetrics';
 import Sidebar from './components/Sidebar';
 import Topbar from './components/Topbar';
@@ -18,6 +18,7 @@ import {
   BatteryView,
 } from './views/Details';
 import { uptime } from './lib/format';
+import { createNavigationState, navigationReducer } from './lib/stateMachines.js';
 
 const GROUPS = [
   {
@@ -121,17 +122,17 @@ function initialCollapsed() {
   }
 }
 
-const viewFromHash = () => {
-  const key = window.location.hash.replace(/^#\/?/, '');
-  return VIEWS[key] ? key : 'overview';
-};
-
 export default function App() {
   const { metrics, history, connected, error, reconnect, disconnect, refresh } = useMetrics();
-  const [view, setView] = useState(viewFromHash);
+  const [navigation, dispatchNavigation] = useReducer(
+    navigationReducer,
+    window.location.hash,
+    createNavigationState
+  );
+  const view = navigation.route;
+  const mobileOpen = navigation.drawer === 'open';
   const [theme, setTheme] = useState(initialTheme);
   const [collapsed, setCollapsed] = useState(initialCollapsed);
-  const [mobileOpen, setMobileOpen] = useState(false);
 
   const dark = theme === 'dark';
   const current = VIEWS[view] ?? VIEWS.overview;
@@ -161,9 +162,10 @@ export default function App() {
 
   useEffect(() => {
     const onKey = (event) => {
-      if (event.key === 'Escape') setMobileOpen(false);
+      if (event.key === 'Escape') dispatchNavigation({ type: 'ESCAPE' });
     };
-    const syncView = () => setView(viewFromHash());
+    const syncView = () =>
+      dispatchNavigation({ type: 'LOCATION_CHANGED', hash: window.location.hash });
 
     window.addEventListener('keydown', onKey);
     window.addEventListener('hashchange', syncView);
@@ -191,8 +193,7 @@ export default function App() {
 
   const navigate = (next) => {
     if (!VIEWS[next]) return;
-    setView(next);
-    setMobileOpen(false);
+    dispatchNavigation({ type: 'NAVIGATE', route: next });
     if (window.location.hash !== `#${next}`) {
       window.history.pushState(null, '', `#${next}`);
     }
@@ -225,7 +226,7 @@ export default function App() {
             type="button"
             className="scrim is-open"
             aria-label="Close navigation drawer"
-            onClick={() => setMobileOpen(false)}
+            onClick={() => dispatchNavigation({ type: 'CLOSE_DRAWER' })}
           />
         )}
 
@@ -236,7 +237,7 @@ export default function App() {
             darkMode={dark}
             onToggleTheme={() => setTheme(dark ? 'light' : 'dark')}
             onRetry={reconnect}
-            onOpenNav={() => setMobileOpen(true)}
+            onOpenNav={() => dispatchNavigation({ type: 'OPEN_DRAWER' })}
             system={system}
           />
 

@@ -1,7 +1,12 @@
-import React, { useDeferredValue, useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import Icon from '../components/Icon';
 import Redacted from '../components/Redacted';
 import { bytes, isNum } from '../lib/format';
+import {
+  createProcessDialogState,
+  isProtectedProcess,
+  processDialogReducer,
+} from '../lib/stateMachines.js';
 
 const SORTS = [
   { key: 'cpu', label: 'CPU %' },
@@ -161,73 +166,118 @@ export default function Processes({ metrics, onRefresh }) {
   const deferredQuery = useDeferredValue(query);
   const [sort, setSort] = useState('cpu');
   const [filter, setFilter] = useState('all');
-  const [selectedProc, setSelectedProc] = useState(null);
-
-  // Process termination state
-  const [confirmKill, setConfirmKill] = useState(false);
-  const [killSignal, setKillSignal] = useState('SIGTERM');
-  const [isTerminating, setIsTerminating] = useState(false);
-  const [killStatus, setKillStatus] = useState(null);
+  const [dialog, dispatchDialog] = useReducer(
+    processDialogReducer,
+    undefined,
+    createProcessDialogState
+  );
+  const selectedProc = dialog.process;
+  const confirmKill = dialog.phase === 'confirming' || dialog.phase === 'failed';
+  const killSignal = dialog.signal;
+  const isTerminating = dialog.phase === 'terminating';
+  const killStatus = dialog.status;
 
   const modalRef = useRef(null);
   const closeBtnRef = useRef(null);
   const lastFocusedRef = useRef(null);
+  const operationIdRef = useRef(0);
+  const operationRef = useRef(null);
 
   const handleSelectProc = (proc) => {
+    if (!proc) return;
+    operationIdRef.current += 1;
     lastFocusedRef.current = document.activeElement;
-    setSelectedProc(proc);
-    setConfirmKill(false);
-    setKillStatus(null);
-    setKillSignal('SIGTERM');
+    dispatchDialog({ type: 'OPEN', process: proc });
   };
 
-  const handleCloseModal = () => {
-    setSelectedProc(null);
-    setConfirmKill(false);
-    setKillStatus(null);
+  const handleCloseModal = useCallback(() => {
+    operationIdRef.current += 1;
+    operationRef.current?.controller.abort();
+    operationRef.current = null;
+    dispatchDialog({ type: 'CLOSE' });
     if (lastFocusedRef.current && typeof lastFocusedRef.current.focus === 'function') {
       lastFocusedRef.current.focus();
     }
-  };
+  }, []);
 
   const handleKillProcess = async () => {
-    if (!selectedProc) return;
-    setIsTerminating(true);
-    setKillStatus(null);
+    const target = selectedProc;
+    if (
+      !target ||
+      !['confirming', 'failed'].includes(dialog.phase) ||
+      isProtectedProcess(target) ||
+      operationRef.current
+    ) {
+      return;
+    }
+
+    const operationId = ++operationIdRef.current;
+    const signal = killSignal;
+    const controller = new AbortController();
+    operationRef.current = { id: operationId, controller };
+    dispatchDialog({ type: 'TERMINATION_STARTED' });
+
     try {
-      const res = await fetch(`/api/processes/${selectedProc.pid}/kill`, {
+      const res = await fetch('/api/processes/' + target.pid + '/kill', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ signal: killSignal }),
+        body: JSON.stringify({ signal }),
+        signal: controller.signal,
       });
-      const data = await res.json();
-      if (data.ok) {
-        setKillStatus({
-          ok: true,
-          message: `Process ${selectedProc.pid} (${selectedProc.name}) terminated successfully via ${killSignal}.`,
-        });
-        setConfirmKill(false);
-        if (typeof onRefresh === 'function') {
-          onRefresh();
-        }
-        setTimeout(() => {
-          handleCloseModal();
-        }, 1400);
-      } else {
-        setKillStatus({
-          ok: false,
-          message: `Termination failed: ${data.error || 'Server error'}`,
-        });
+      let data = null;
+      try {
+        data = await res.json();
+      } catch {
+        data = null;
       }
+
+      if (operationId !== operationIdRef.current) return;
+      if (!res.ok || !data?.ok) {
+        dispatchDialog({
+          type: 'TERMINATION_FAILED',
+          status: {
+            ok: false,
+            message: 'Termination failed: ' + (data?.error || ('HTTP ' + res.status)),
+          },
+        });
+        return;
+      }
+
+      dispatchDialog({
+        type: 'TERMINATION_SUCCEEDED',
+        status: {
+          ok: true,
+          message:
+            'Process ' + target.pid + ' (' + target.name + ') terminated successfully via ' + signal + '.',
+        },
+      });
+      if (typeof onRefresh === 'function') onRefresh();
     } catch (err) {
-      setKillStatus({
-        ok: false,
-        message: `Network error terminating process: ${err.message}`,
+      if (operationId !== operationIdRef.current) return;
+      dispatchDialog({
+        type: 'TERMINATION_FAILED',
+        status: {
+          ok: false,
+          message: 'Network error terminating process: ' + (err?.message || 'unknown error'),
+        },
       });
     } finally {
-      setIsTerminating(false);
+      if (operationRef.current?.id === operationId) operationRef.current = null;
     }
   };
+
+  useEffect(() => () => {
+    operationIdRef.current += 1;
+    operationRef.current?.controller.abort();
+    operationRef.current = null;
+  }, []);
+
+  // A completed request may close only the dossier that initiated it.
+  useEffect(() => {
+    if (dialog.phase !== 'succeeded') return undefined;
+    const timer = setTimeout(() => handleCloseModal(), 1400);
+    return () => clearTimeout(timer);
+  }, [dialog.phase, handleCloseModal]);
 
   // Accessible Modal focus trap and Escape handler
   useEffect(() => {
@@ -271,7 +321,7 @@ export default function Processes({ metrics, onRefresh }) {
       clearTimeout(timer);
       window.removeEventListener('keydown', handleKeyDown);
     };
-  }, [selectedProc]);
+  }, [selectedProc, handleCloseModal]);
 
   const rows = useMemo(() => {
     const needle = deferredQuery.trim().toLowerCase();
@@ -517,6 +567,13 @@ export default function Processes({ metrics, onRefresh }) {
                     <span>DISMISS</span>
                   </button>
                 </div>
+              ) : dialog.phase === 'succeeded' ? (
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <span className="stamp stamp--confirmed">TERMINATION ACKNOWLEDGED</span>
+                  <button type="button" className="btn btn--clay" onClick={handleCloseModal}>
+                    CLOSE DOSSIER
+                  </button>
+                </div>
               ) : confirmKill ? (
                 <div style={{ padding: '.8rem', background: 'var(--red-tint)', borderRadius: 'var(--r-sm)', border: '1px solid var(--red)' }}>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '.8rem', flexWrap: 'wrap', gap: '.5rem' }}>
@@ -527,14 +584,14 @@ export default function Processes({ metrics, onRefresh }) {
                       <button
                         type="button"
                         className={killSignal === 'SIGTERM' ? 'is-on' : ''}
-                        onClick={() => setKillSignal('SIGTERM')}
+                        onClick={() => dispatchDialog({ type: 'SET_SIGNAL', signal: 'SIGTERM' })}
                       >
                         SIGTERM (GRACEFUL)
                       </button>
                       <button
                         type="button"
                         className={killSignal === 'SIGKILL' ? 'is-on' : ''}
-                        onClick={() => setKillSignal('SIGKILL')}
+                        onClick={() => dispatchDialog({ type: 'SET_SIGNAL', signal: 'SIGKILL' })}
                       >
                         SIGKILL (FORCE)
                       </button>
@@ -544,7 +601,7 @@ export default function Processes({ metrics, onRefresh }) {
                     <button
                       type="button"
                       className="btn btn--paper btn--sm"
-                      onClick={() => setConfirmKill(false)}
+                      onClick={() => dispatchDialog({ type: 'CANCEL_CONFIRMATION' })}
                       disabled={isTerminating}
                     >
                       CANCEL
@@ -566,7 +623,7 @@ export default function Processes({ metrics, onRefresh }) {
                     type="button"
                     className="btn btn--paper btn--sm"
                     style={{ color: 'var(--red)', borderColor: 'var(--red)' }}
-                    onClick={() => setConfirmKill(true)}
+                    onClick={() => dispatchDialog({ type: 'REQUEST_CONFIRMATION' })}
                   >
                     <span>KILL PROCESS</span>
                   </button>

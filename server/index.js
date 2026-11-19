@@ -4,6 +4,11 @@ import { createServer } from 'node:http';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import {
+  createServerLifecycleState,
+  serverLifecycleReducer,
+  socketLivenessReducer,
+} from './stateMachines.js';
+import {
   getCpuMetrics,
   getMemoryMetrics,
   getDiskMetrics,
@@ -22,6 +27,15 @@ import {
 const here = path.dirname(fileURLToPath(import.meta.url));
 const app = express();
 const server = createServer(app);
+let lifecycle = createServerLifecycleState();
+
+function transitionLifecycle(event) {
+  const next = serverLifecycleReducer(lifecycle, event);
+  if (next === lifecycle) return false;
+  lifecycle = next;
+  return true;
+}
+
 const port = Number(process.env.PORT) || 3002;
 const host = process.env.HOST || '127.0.0.1';
 
@@ -198,27 +212,42 @@ server.on('upgrade', (req, socket, head) => {
 
 wss.on('connection', (ws) => {
   clients.add(ws);
-  ws.isAlive = true;
+  ws.livenessState = 'alive';
   ws.on('pong', () => {
-    ws.isAlive = true;
+    ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'PONG' });
   });
-  ws.on('close', () => clients.delete(ws));
-  ws.on('error', () => clients.delete(ws));
+  ws.on('close', () => {
+    ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'CLOSE' });
+    clients.delete(ws);
+  });
+  ws.on('error', () => {
+    ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'ERROR' });
+    clients.delete(ws);
+  });
   ws.send(JSON.stringify({ type: 'snapshot', data: latest }));
 });
 
-// Drop half-open sockets instead of broadcasting to them forever.
+// A peer must answer each ping before the following heartbeat.
 const heartbeat = setInterval(() => {
   for (const ws of clients) {
-    if (ws.isAlive === false) {
+    if (ws.readyState !== 1) {
+      ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'CLOSE' });
+      clients.delete(ws);
+      continue;
+    }
+
+    const nextState = socketLivenessReducer(ws.livenessState, { type: 'PING_SENT' });
+    if (nextState === 'closed') {
       clients.delete(ws);
       ws.terminate();
       continue;
     }
-    ws.isAlive = false;
+
+    ws.livenessState = nextState;
     try {
       ws.ping();
     } catch {
+      ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'ERROR' });
       clients.delete(ws);
     }
   }
@@ -229,12 +258,16 @@ function broadcast(frame) {
     if (ws.readyState !== 1) continue;
     // Never let one stalled client grow an unbounded send buffer.
     if (ws.bufferedAmount > MAX_BUFFERED) {
+      ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'CLOSE' });
       clients.delete(ws);
       ws.terminate();
       continue;
     }
     ws.send(frame, (error) => {
-      if (error) clients.delete(ws);
+      if (error) {
+        ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'ERROR' });
+        clients.delete(ws);
+      }
     });
   }
 }
@@ -242,7 +275,10 @@ function broadcast(frame) {
 let timer = null;
 
 function scheduleNext() {
+  if (!['starting', 'running'].includes(lifecycle.phase)) return;
   timer = setTimeout(() => {
+    timer = null;
+    if (!['starting', 'running'].includes(lifecycle.phase)) return;
     latest = collect();
     broadcast(JSON.stringify({ type: 'update', data: latest }));
     scheduleNext();
@@ -254,12 +290,20 @@ scheduleNext();
 
 server.on('error', (error) => {
   console.error('HTTP server error:', error.message);
+  if (!transitionLifecycle({ type: 'FAIL', code: 1 })) return;
   clearInterval(heartbeat);
   clearTimeout(timer);
+  timer = null;
+  for (const ws of clients) {
+    ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'ERROR' });
+    ws.terminate();
+  }
+  clients.clear();
   process.exit(1);
 });
 
 server.listen(port, host, () => {
+  transitionLifecycle({ type: 'LISTENING' });
   console.log(`Blink local agent listening at http://${host}:${port}`);
   if (host !== '127.0.0.1' && host !== 'localhost') {
     console.warn(
@@ -268,16 +312,36 @@ server.listen(port, host, () => {
   }
 });
 
-let stopping = false;
+let shutdownTimer = null;
 
 function stop(code = 0) {
-  if (stopping) return;
-  stopping = true;
+  if (!transitionLifecycle({ type: 'STOP', code })) return;
+
   clearTimeout(timer);
+  timer = null;
   clearInterval(heartbeat);
-  for (const ws of clients) ws.close();
-  server.close(() => process.exit(code));
-  setTimeout(() => process.exit(code), 3000).unref();
+
+  for (const ws of clients) {
+    ws.livenessState = socketLivenessReducer(ws.livenessState, { type: 'CLOSE' });
+    ws.close();
+  }
+  clients.clear();
+
+  const finish = () => {
+    transitionLifecycle({ type: 'CLOSED' });
+    if (shutdownTimer) clearTimeout(shutdownTimer);
+    shutdownTimer = null;
+    process.exit(code);
+  };
+
+  shutdownTimer = setTimeout(() => process.exit(code), 3000);
+  shutdownTimer.unref?.();
+
+  try {
+    server.close(finish);
+  } catch {
+    finish();
+  }
 }
 
 process.on('SIGINT', () => stop(0));

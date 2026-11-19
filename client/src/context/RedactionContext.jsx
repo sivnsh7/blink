@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useState, useCallback } from 'react';
+import React, { createContext, useContext, useMemo, useReducer, useCallback } from 'react';
+import { createRedactionState, redactionReducer } from '../lib/stateMachines.js';
 
 const RedactionContext = createContext({
   redactionMode: true,
@@ -9,36 +10,21 @@ const RedactionContext = createContext({
 });
 
 export function RedactionProvider({ children }) {
-  const [redactionMode, setRedactionMode] = useState(true);
-  const [revealedKeys, setRevealedKeys] = useState(() => new Set());
+  const [state, dispatch] = useReducer(redactionReducer, undefined, createRedactionState);
+  const redactionMode = state.mode === 'masked';
+  const revealedKeys = state.revealedKeys;
 
   const toggleRedactionMode = useCallback(() => {
-    setRedactionMode((prev) => {
-      const next = !prev;
-      // When re-enabling global masking, immediately purge all per-item reveals
-      if (next) {
-        setRevealedKeys(new Set());
-      }
-      return next;
-    });
+    dispatch({ type: 'TOGGLE_GLOBAL' });
   }, []);
 
   const toggleRevealKey = useCallback((key) => {
-    if (!key) return;
-    setRevealedKeys((prev) => {
-      const next = new Set(prev);
-      if (next.has(key)) next.delete(key);
-      else next.add(key);
-      return next;
-    });
+    dispatch({ type: 'TOGGLE_REVEAL', key });
   }, []);
 
   const isKeyRevealed = useCallback(
-    (key) => {
-      if (!key) return false;
-      return revealedKeys.has(key);
-    },
-    [revealedKeys]
+    (key) => Boolean(key) && redactionMode && revealedKeys.has(key),
+    [redactionMode, revealedKeys]
   );
 
   const value = useMemo(

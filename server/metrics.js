@@ -1,6 +1,7 @@
 import { readFileSync, readdirSync, realpathSync, existsSync, statfsSync } from 'fs';
 import os from 'os';
 import path from 'path';
+import { advanceSamplingBaseline, createSamplingBaseline } from './samplingState.js';
 
 // Cached hardware constants (read once safely without shell spawning)
 const pageSize = (() => {
@@ -14,18 +15,12 @@ const pageSize = (() => {
 // USER_HZ is standard 100 on Linux x86/ARM
 const clkTck = 100;
 
-// Module-level sampling baselines
-let lastCpuMap = new Map();
-let lastDiskStats = null;
-let lastNetStats = null;
-let lastProcessCpu = new Map();
-let lastDiskAt = 0;
-let lastNetAt = 0;
-
-function elapsedSince(previous) {
-  const delta = (Date.now() - previous) / 1000;
-  return delta > 0 ? delta : 1;
-}
+// Module-level sampling baselines have explicit first-sample and ready phases.
+let cpuBaseline = createSamplingBaseline();
+let diskBaseline = createSamplingBaseline();
+let networkBaseline = createSamplingBaseline();
+// Each live PID owns an independent uninitialized/ready CPU baseline.
+let processCpuBaselines = new Map();
 
 // ─── STATIC SYSTEM METADATA (CACHED ONCE, ZERO SHELL) ───────────────────────
 
@@ -147,12 +142,11 @@ function getThermalStatus() {
 
 export function getCpuMetrics() {
   const current = parseProcStat();
-  const usage = calculateCpuUsage(current, lastCpuMap);
-
-  // Update CPU baseline Map keyed by CPU label
   const nextMap = new Map();
-  for (const c of current) nextMap.set(c.name, c);
-  lastCpuMap = nextMap;
+  for (const cpu of current) nextMap.set(cpu.name, cpu);
+  const sample = advanceSamplingBaseline(cpuBaseline, nextMap, Date.now());
+  cpuBaseline = sample.state;
+  const usage = calculateCpuUsage(current, sample.previous);
 
   let overallUsage = null;
   let coreUsages = [];
@@ -393,9 +387,9 @@ function parseFilesystemMounts() {
 export function getDiskMetrics() {
   const current = parseDiskStats();
   const now = Date.now();
-  const rates = calculateDiskRates(current, lastDiskStats, lastDiskStats ? elapsedSince(lastDiskAt) : 1);
-  lastDiskStats = current;
-  lastDiskAt = now;
+  const sample = advanceSamplingBaseline(diskBaseline, current, now);
+  diskBaseline = sample.state;
+  const rates = calculateDiskRates(current, sample.previous, sample.elapsedSeconds ?? 1);
 
   const filesystems = parseFilesystemMounts();
   const blockDevices = [];
@@ -535,9 +529,9 @@ function getNetworkInterfaceProps(iface) {
 export function getNetworkMetrics() {
   const current = parseNetStats();
   const now = Date.now();
-  const rates = calculateNetRates(current, lastNetStats, lastNetStats ? elapsedSince(lastNetAt) : 1);
-  lastNetStats = current;
-  lastNetAt = now;
+  const sample = advanceSamplingBaseline(networkBaseline, current, now);
+  networkBaseline = sample.state;
+  const rates = calculateNetRates(current, sample.previous, sample.elapsedSeconds ?? 1);
 
   return Object.entries(current)
     .filter(([name]) => name !== 'lo')
@@ -664,20 +658,28 @@ export function getProcessMetrics() {
     })();
 
     const alive = new Set(entries.map((proc) => proc.pid));
-    for (const pid of lastProcessCpu.keys()) {
-      if (!alive.has(pid)) lastProcessCpu.delete(pid);
+    for (const pid of processCpuBaselines.keys()) {
+      if (!alive.has(pid)) processCpuBaselines.delete(pid);
     }
 
     const processes = [];
     for (const proc of entries) {
-      const last = lastProcessCpu.get(proc.pid);
+      const baseline = processCpuBaselines.get(proc.pid) || { phase: 'uninitialized' };
       let cpuPercent = 0;
-      if (last) {
-        const timeDelta = proc.utime + proc.stime - (last.utime + last.stime);
-        const realTimeDelta = (now - last.time) / 1000;
-        if (realTimeDelta > 0) cpuPercent = ((timeDelta / clkTck) / realTimeDelta) * 100;
+      if (baseline.phase === 'ready') {
+        const timeDelta = proc.utime + proc.stime - (baseline.utime + baseline.stime);
+        const realTimeDelta = (now - baseline.sampledAt) / 1000;
+        // Counter rollback or a non-positive interval establishes a new baseline.
+        if (realTimeDelta > 0 && timeDelta >= 0) {
+          cpuPercent = ((timeDelta / clkTck) / realTimeDelta) * 100;
+        }
       }
-      lastProcessCpu.set(proc.pid, { utime: proc.utime, stime: proc.stime, time: now });
+      processCpuBaselines.set(proc.pid, {
+        phase: 'ready',
+        utime: proc.utime,
+        stime: proc.stime,
+        sampledAt: now,
+      });
       const memPercent = memTotal > 0 ? (proc.rss / memTotal) * 100 : 0;
 
       processes.push({

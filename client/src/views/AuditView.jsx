@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef } from 'react';
 import Icon from '../components/Icon';
+import { auditReducer, createAuditState } from '../lib/stateMachines.js';
 
 function formatStallTotal(usec) {
   if (usec == null) return '—';
@@ -10,31 +11,42 @@ function formatStallTotal(usec) {
 }
 
 export default function AuditView({ metrics }) {
-  const [audit, setAudit] = useState(null);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState(null);
+  const [auditState, dispatchAudit] = useReducer(auditReducer, undefined, createAuditState);
+  const { audit, error } = auditState;
+  const loading = auditState.phase === 'loading';
+  const auditRequestRef = useRef(null);
 
-  const fetchAudit = async () => {
-    setLoading(true);
-    setError(null);
+  const fetchAudit = useCallback(async () => {
+    auditRequestRef.current?.abort();
+    const controller = new AbortController();
+    auditRequestRef.current = controller;
+    dispatchAudit({ type: 'REQUEST' });
+
     try {
-      const res = await fetch('/api/audit');
-      if (res.ok) {
-        const json = await res.json();
-        setAudit(json.audit);
-      } else {
-        setError(`Audit endpoint returned HTTP ${res.status}`);
-      }
+      const res = await fetch('/api/audit', { signal: controller.signal });
+      if (!res.ok) throw new Error(`Audit endpoint returned HTTP ${res.status}`);
+      const json = await res.json();
+      if (auditRequestRef.current !== controller) return;
+      dispatchAudit({ type: 'SUCCESS', audit: json.audit });
     } catch (err) {
-      setError(err?.message || 'Failed to reach audit endpoint');
+      if (auditRequestRef.current === controller && !controller.signal.aborted) {
+        dispatchAudit({
+          type: 'FAILURE',
+          message: err?.message || 'Failed to reach audit endpoint',
+        });
+      }
     } finally {
-      setLoading(false);
+      if (auditRequestRef.current === controller) auditRequestRef.current = null;
     }
-  };
+  }, []);
 
   useEffect(() => {
-    fetchAudit();
-  }, []);
+    void fetchAudit();
+    return () => {
+      auditRequestRef.current?.abort();
+      auditRequestRef.current = null;
+    };
+  }, [fetchAudit]);
 
   const sec = metrics?.security || audit?.security || null;
   const psi = metrics?.psi || audit?.psi || null;
