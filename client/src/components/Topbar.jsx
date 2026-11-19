@@ -4,7 +4,7 @@ import { useRedaction } from '../context/RedactionContext';
 import { telemetryStatusView } from '../lib/stateMachines.js';
 
 export default function Topbar({
-  title, connected, connectionState, navOpen, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
+  title, connectionState, navOpen, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
   snapshotState = 'empty',
 }) {
   const { redactionMode, toggleRedactionMode } = useRedaction();
