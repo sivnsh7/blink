@@ -130,6 +130,7 @@ export default function App() {
   };
 
   return (
+    <>
       <a href="#main-content" className="skip-link">Skip to content</a>
       <div className="shell">
         <Sidebar
@@ -201,5 +202,6 @@ export default function App() {
           </div>
         </main>
       </div>
+    </>
   );
 }
