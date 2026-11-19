@@ -376,7 +376,7 @@ export default function Processes({ metrics, onRefresh }) {
         <div className="card-head">
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.3rem' }}>
-              <span className="stamp stamp--live">PROC TELEMETRY</span>
+              <span className="stamp stamp--idle">PROC TELEMETRY</span>
               <h2 className="card-title">Process Security & Resource Registry</h2>
             </div>
             <p className="card-note">
