@@ -1,7 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import Icon from './Icon';
 import BlinkMark from './BlinkMark';
-import Redacted from './Redacted';
 
 function initials(name) {
   const clean = String(name || 'Blink').replace(/[^a-z0-9]/gi, '');
@@ -109,7 +108,7 @@ export default function Sidebar({
           aria-expanded={identityOpen} aria-controls="identity-details">
           <span className="avatar" aria-hidden="true">{initials(hostname)}</span>
           <span className="identity-text">
-            <span className="identity-name"><Redacted note="HOST NAME">{hostname}</Redacted></span>
+            <span className="identity-name">{hostname}</span>
             <span className="identity-sub">{system?.distro || 'Linux'} · {system?.arch || '—'}</span>
           </span>
           <Icon name="chevron" size={14} className="identity-chevron" />
