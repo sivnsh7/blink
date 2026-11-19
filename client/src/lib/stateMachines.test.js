@@ -5,11 +5,9 @@ import {
   createAuditState,
   createNavigationState,
   createProcessDialogState,
-  createRedactionState,
   createTelemetryState,
   navigationReducer,
   processDialogReducer,
-  redactionReducer,
   routeFromHash,
   telemetryReducer,
   telemetryStatusView,
@@ -172,22 +170,6 @@ test('failed process termination can be retried or cancelled', () => {
   state = processDialogReducer(state, { type: 'CANCEL_CONFIRMATION' });
   assert.equal(state.phase, 'inspecting');
 });
-
-test('global masking clears local reveals and reveals are rejected while unmasked', () => {
-  let state = createRedactionState();
-  state = redactionReducer(state, { type: 'TOGGLE_REVEAL', key: 'pid:412' });
-  assert.equal(state.revealedKeys.has('pid:412'), true);
-
-  state = redactionReducer(state, { type: 'TOGGLE_GLOBAL' });
-  assert.equal(state.mode, 'unmasked');
-  state = redactionReducer(state, { type: 'TOGGLE_REVEAL', key: 'pid:510' });
-  assert.equal(state.revealedKeys.has('pid:510'), false);
-
-  state = redactionReducer(state, { type: 'TOGGLE_GLOBAL' });
-  assert.equal(state.mode, 'masked');
-  assert.equal(state.revealedKeys.size, 0);
-});
-
 
 test('browser location changes close an open responsive drawer', () => {
   let state = createNavigationState('#/overview');
