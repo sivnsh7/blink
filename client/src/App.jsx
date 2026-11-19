@@ -68,7 +68,7 @@ function initialCollapsed() {
 
 export default function App() {
   const {
-    metrics, history, connected, connectionState, snapshotState, error,
+    metrics, history, connectionState, snapshotState, error,
     reconnect, disconnect, refresh,
   } = useMetrics();
   const [navigation, dispatchNavigation] = useReducer(
@@ -158,7 +158,6 @@ export default function App() {
         <main id="main-content" className="workspace">
           <Topbar
             title={current.title}
-            connected={connected}
             snapshotState={snapshotState}
             connectionState={connectionState}
             navOpen={mobileOpen}
