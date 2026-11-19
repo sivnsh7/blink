@@ -39,7 +39,14 @@ export default function Topbar({
           <Icon name={redactionMode ? 'eye-off' : 'eye'} size={15} />
           <span className="mask-label">{redactionMode ? 'Masked' : 'Visible'}</span>
         </button>
-        <button type="button" className="icon-btn" onClick={onRefresh} aria-label="Refresh host snapshot" title="Refresh snapshot">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onRefresh}
+          disabled={connectionState === 'paused'}
+          aria-label="Refresh host snapshot"
+          title={connectionState === 'paused' ? 'Resume telemetry to refresh the host snapshot' : 'Refresh snapshot'}
+        >
           <Icon name="refresh" size={16} />
         </button>
         <button type="button" className="icon-btn" onClick={onRetry} aria-label="Reconnect live telemetry" title="Reconnect live stream">
