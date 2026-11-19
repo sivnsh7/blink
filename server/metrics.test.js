@@ -132,7 +132,7 @@ test('Process termination safety and validation guards', async () => {
 
   const stat = readFileSync(`/proc/${child.pid}/stat`, 'utf-8');
   const end = stat.lastIndexOf(')');
-  const startTimeTicks = Number(stat.slice(end + 1).trim().split(/\\s+/)[19]);
+  const startTimeTicks = Number(stat.slice(end + 1).trim().split(/\s+/)[19]);
   assert.ok(Number.isSafeInteger(startTimeTicks));
 
   assert.throws(

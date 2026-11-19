@@ -21,7 +21,8 @@ const routeSet = new Set(ROUTES);
 
 export function routeFromHash(hash = '') {
   const key = String(hash).replace(/^#\/?/, '').split('?')[0];
-  return routeSet.has(key) ? key : 'overview';
+  if (routeSet.has(key)) return key;
+  return LEGACY_ROUTES[key] || 'overview';
 }
 
 export function createNavigationState(hash = '') {
@@ -223,44 +224,6 @@ export function redactionReducer(state, event) {
       else revealedKeys.add(event.key);
       return { ...state, revealedKeys };
     }
-    default:
-      return state;
-  }
-}
-
-
-/**
- * Ambient headline animation:
- * idle -> scrambling -> holding -> idle.
- * CANCEL makes text changes/unmounts invalidate all scheduled transitions.
- */
-export function createGlitchState() {
-  return { phase: 'idle', idx: -1, char: '', originalChar: '' };
-}
-
-export function glitchReducer(state, event) {
-  switch (event.type) {
-    case 'START_STRIKE':
-      if (state.phase !== 'idle' || !Number.isInteger(event.idx) || event.idx < 0) return state;
-      if (typeof event.originalChar !== 'string' || !event.originalChar) return state;
-      return {
-        phase: 'scrambling',
-        idx: event.idx,
-        char: event.originalChar,
-        originalChar: event.originalChar,
-      };
-    case 'SCRAMBLE_TICK':
-      return state.phase === 'scrambling' && typeof event.char === 'string'
-        ? { ...state, char: event.char }
-        : state;
-    case 'SCRAMBLE_COMPLETE':
-      return state.phase === 'scrambling'
-        ? { ...state, phase: 'holding', char: state.originalChar }
-        : state;
-    case 'HOLD_COMPLETE':
-      return state.phase === 'holding' ? createGlitchState() : state;
-    case 'CANCEL':
-      return createGlitchState();
     default:
       return state;
   }

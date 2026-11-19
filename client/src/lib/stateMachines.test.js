@@ -188,44 +188,6 @@ test('global masking clears local reveals and reveals are rejected while unmaske
 });
 
 
-test('headline glitch follows idle, scramble, hold and idle transitions', async () => {
-  const { createGlitchState, glitchReducer } = await import('./stateMachines.js');
-  let state = createGlitchState();
-  state = glitchReducer(state, { type: 'START_STRIKE', idx: 4, originalChar: 'K' });
-  assert.equal(state.phase, 'scrambling');
-  assert.equal(state.idx, 4);
-
-  state = glitchReducer(state, { type: 'SCRAMBLE_TICK', char: 'ア' });
-  assert.equal(state.char, 'ア');
-
-  state = glitchReducer(state, { type: 'SCRAMBLE_COMPLETE' });
-  assert.equal(state.phase, 'holding');
-  assert.equal(state.char, 'K');
-
-  const held = state;
-  state = glitchReducer(state, { type: 'SCRAMBLE_TICK', char: 'X' });
-  assert.equal(state, held);
-
-  state = glitchReducer(state, { type: 'HOLD_COMPLETE' });
-  assert.deepEqual(state, createGlitchState());
-});
-
-test('headline glitch cancellation invalidates scheduled animation events', async () => {
-  const { createGlitchState, glitchReducer } = await import('./stateMachines.js');
-  let state = glitchReducer(createGlitchState(), {
-    type: 'START_STRIKE',
-    idx: 2,
-    originalChar: 'I',
-  });
-  state = glitchReducer(state, { type: 'CANCEL' });
-  const idle = state;
-
-  state = glitchReducer(state, { type: 'SCRAMBLE_TICK', char: 'Z' });
-  state = glitchReducer(state, { type: 'SCRAMBLE_COMPLETE' });
-  assert.equal(state, idle);
-});
-
-
 test('browser location changes close an open responsive drawer', () => {
   let state = createNavigationState('#/overview');
   state = navigationReducer(state, { type: 'OPEN_DRAWER' });
@@ -238,26 +200,6 @@ test('processes with missing or invalid PIDs are protected', async () => {
   assert.equal(isProtectedProcess({ name: 'missing-pid' }), true);
   assert.equal(isProtectedProcess({ pid: '1.5' }), true);
   assert.equal(isProtectedProcess({ pid: Number.MAX_SAFE_INTEGER + 1 }), true);
-});
-
-
-test('a stale headline hold completion cannot cancel a later scramble', async () => {
-  const { createGlitchState, glitchReducer } = await import('./stateMachines.js');
-  let state = glitchReducer(createGlitchState(), {
-    type: 'START_STRIKE',
-    idx: 0,
-    originalChar: 'B',
-  });
-  state = glitchReducer(state, { type: 'CANCEL' });
-  state = glitchReducer(state, {
-    type: 'START_STRIKE',
-    idx: 3,
-    originalChar: 'K',
-  });
-  const active = state;
-  state = glitchReducer(state, { type: 'HOLD_COMPLETE' });
-  assert.equal(state, active);
-  assert.equal(state.phase, 'scrambling');
 });
 
 
