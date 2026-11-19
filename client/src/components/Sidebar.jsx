@@ -46,6 +46,8 @@ export default function Sidebar({
     }
 
     returnFocusRef.current = document.activeElement;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
     const getFocusable = () => Array.from(
       railRef.current?.querySelectorAll(
         'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
@@ -70,7 +72,10 @@ export default function Sidebar({
     };
 
     document.addEventListener('keydown', trapFocus);
-    return () => document.removeEventListener('keydown', trapFocus);
+    return () => {
+      document.removeEventListener('keydown', trapFocus);
+      document.body.style.overflow = previousBodyOverflow;
+    };
   }, [mobileOpen, mobileViewport]);
 
   return (
