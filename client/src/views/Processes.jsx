@@ -52,11 +52,7 @@ const ProcessRow = React.memo(function ProcessRow({ proc: p, onSelect }) {
             {String(p.name || '?').slice(0, 2).toUpperCase()}
           </span>
           <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '.82rem' }}>
-            {isRoot || isKern ? (
-              {p.name}
-            ) : (
-              p.name
-            )}
+            {p.name || 'Unknown process'}
           </strong>
         </div>
       </td>
