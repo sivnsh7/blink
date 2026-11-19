@@ -500,9 +500,6 @@ export default function Processes({ metrics, onRefresh }) {
                 </div>
                 <h2 id="proc-modal-title" className="card-title">{selectedProc.name}</h2>
                 <p id="proc-modal-description" className="card-note">Process details from the latest sample. A signal is sent to the host agent only after explicit confirmation.</p>
-
-
-                <p id="proc-modal-description" className="card-note">Process details from the latest sample. A signal is sent to the host agent only after explicit confirmation.</p>
               </div>
               <button
                 ref={closeBtnRef}
