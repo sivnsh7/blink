@@ -1,6 +1,5 @@
 import React, { useCallback, useDeferredValue, useEffect, useMemo, useReducer, useRef, useState } from 'react';
 import Icon from '../components/Icon';
-import Redacted from '../components/Redacted';
 import { bytes, isNum } from '../lib/format';
 import {
   createProcessDialogState,
@@ -30,9 +29,7 @@ const ProcessRow = React.memo(function ProcessRow({ proc: p, onSelect }) {
   return (
     <tr>
       <td>
-        <Redacted note="PID" className="tabular">
-          {p.pid}
-        </Redacted>
+        <span className="tabular">{p.pid}</span>
       </td>
 
       <td>
@@ -56,7 +53,7 @@ const ProcessRow = React.memo(function ProcessRow({ proc: p, onSelect }) {
           </span>
           <strong style={{ fontFamily: 'var(--font-mono)', fontSize: '.82rem' }}>
             {isRoot || isKern ? (
-              <Redacted note="SYS-PROC">{p.name}</Redacted>
+              {p.name}
             ) : (
               p.name
             )}
