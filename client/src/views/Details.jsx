@@ -45,7 +45,7 @@ export function CpuView({ metrics, history }) {
       {/* Proof Strip */}
       <div className="proof">
         <div>
-          <span className="proof__n">{cores.length || metrics?.system?.cpus || 1}</span>
+          <span className="proof__n">{cores.length || metrics?.system?.cpus || '—'}</span>
           <span className="proof__l">LOGICAL CPUS</span>
         </div>
         <div>
@@ -57,7 +57,7 @@ export function CpuView({ metrics, history }) {
           <span className="proof__l">AVERAGE FREQUENCY</span>
         </div>
         <div>
-          <span className="proof__n">{load.l1 != null ? load.l1.toFixed(2) : '0.00'}</span>
+          <span className="proof__n">{isNum(load.l1) ? Number(load.l1).toFixed(2) : '—'}</span>
           <span className="proof__l">TASK LOAD 1M</span>
         </div>
       </div>
@@ -138,7 +138,7 @@ export function MemoryView({ metrics, history }) {
       {/* Proof Strip */}
       <div className="proof">
         <div>
-          <span className="proof__n">{bytes(m?.total || 0)}</span>
+          <span className="proof__n">{bytes(m?.total)}</span>
           <span className="proof__l">TOTAL PHYSICAL RAM</span>
         </div>
         <div>
@@ -146,11 +146,11 @@ export function MemoryView({ metrics, history }) {
           <span className="proof__l">ESTIMATED RAM USED</span>
         </div>
         <div>
-          <span className="proof__n">{bytes(m?.available || 0)}</span>
+          <span className="proof__n">{bytes(m?.available)}</span>
           <span className="proof__l">AVAILABLE HEADROOM</span>
         </div>
         <div>
-          <span className="proof__n">{bytes(m?.cached || 0)}</span>
+          <span className="proof__n">{bytes(m?.cached)}</span>
           <span className="proof__l">PAGE CACHE & BUFFERS</span>
         </div>
       </div>
@@ -169,15 +169,15 @@ export function MemoryView({ metrics, history }) {
           </section>
 
           <section className="card card-pad card--fold">
-            <Head title="Swap Subsystem" note={m?.swapTotal > 0 ? 'Reclaimable swap partition.' : 'No swap device active.'} stamp="SWAP / ZRAM" />
+            <Head title="Swap Subsystem" note={!isNum(m?.swapTotal) ? 'Swap capacity has not been reported.' : m.swapTotal > 0 ? 'Swap capacity is reported by the host.' : 'No active swap capacity is reported.'} stamp="SWAP / ZRAM" />
             <div className="bar" style={{ height: 8 }}>
               <i style={{ width: `${swap ?? 0}%`, background: swap != null && swap > 60 ? 'var(--clay)' : 'var(--red)' }} />
             </div>
             <div className="rows" style={{ marginTop: 14 }}>
               <Row label="Swap Used" value={bytes(m?.swapUsed)} />
               <Row label="Swap Total" value={bytes(m?.swapTotal)} />
-              <Row label="zram Compressed" value={m?.zram > 0 ? bytes(m.zram) : 'not in use'} />
-              <Row label="zswap Memory" value={m?.zswap > 0 ? bytes(m.zswap) : 'not in use'} />
+              <Row label="zram Compressed" value={isNum(m?.zram) ? (m.zram > 0 ? bytes(m.zram) : 'not in use') : '—'} />
+              <Row label="zswap Memory" value={isNum(m?.zswap) ? (m.zswap > 0 ? bytes(m.zswap) : 'not in use') : '—'} />
             </div>
           </section>
         </div>
@@ -194,7 +194,7 @@ export function MemoryView({ metrics, history }) {
                 <Row label="Active Pages" value={bytes(m?.active)} />
                 <Row label="Inactive Pages" value={bytes(m?.inactive)} />
                 <Row label="Kernel Slab" value={bytes(m?.slab)} />
-                <Row label="Non-Reclaimable" value={bytes(Math.max(0, Number(m?.nonReclaimable) || 0))} />
+                <Row label="Non-Reclaimable" value={bytes(m?.nonReclaimable)} />
               </div>
             </div>
           </section>
@@ -216,8 +216,9 @@ export function StorageView({ metrics, history }) {
   const filesystems = (metrics?.storage?.filesystems || metrics?.disk || []).filter((d) => !/^(loop|ram)/.test(d.name));
   const rootFs = filesystems.find((f) => f.isRoot || f.mountpoint === '/') || filesystems[0];
   const rootUsage = clampPct(rootFs?.usePercent);
-  const totalFsCap = filesystems.reduce((s, d) => s + (Number(d.size) || 0), 0);
-  const totalFsUsed = filesystems.reduce((s, d) => s + (Number(d.used) || 0), 0);
+  const totalFsCap = filesystems.length > 0 && filesystems.every((d) => isNum(d.size))
+    ? filesystems.reduce((sum, d) => sum + Number(d.size), 0)
+    : null;
 
   return (
     <div className="stack" style={{ display: 'grid', gap: '1.6rem' }}>
@@ -276,7 +277,7 @@ export function StorageView({ metrics, history }) {
                   <td className="tabular">{bytes(d.readBytesPerSec, { rate: true })}</td>
                   <td className="tabular">{bytes(d.writeBytesPerSec, { rate: true })}</td>
                   <td className="tabular">
-                    {isNum(d.readLatency) ? `${Number(d.readLatency).toFixed(1)} / ${Number(d.writeLatency || 0).toFixed(1)} ms` : '—'}
+                    {isNum(d.readLatency) && isNum(d.writeLatency) ? `${Number(d.readLatency).toFixed(1)} / ${Number(d.writeLatency).toFixed(1)} ms` : '—'}
                   </td>
                 </tr>
               ))}
@@ -349,7 +350,7 @@ export function StorageView({ metrics, history }) {
           <Head title="Root Filesystem Allocation" stamp="CAPACITY" />
           <div className="ring-wrap">
             <Ring3D
-              value={rootUsage ?? 0}
+              value={rootUsage}
               size={132}
               sublabel="USED"
               label="Root filesystem allocation"
@@ -369,8 +370,12 @@ export function StorageView({ metrics, history }) {
 
 export function NetworkView({ metrics, history }) {
   const net = metrics?.network || [];
-  const rx = net.reduce((s, n) => s + (Number(n.rxBytesPerSec) || 0), 0);
-  const tx = net.reduce((s, n) => s + (Number(n.txBytesPerSec) || 0), 0);
+  const rxReady = net.length > 0 && net.every((n) => isNum(n?.rxBytesPerSec));
+  const txReady = net.length > 0 && net.every((n) => isNum(n?.txBytesPerSec));
+  const totalRxReady = net.length > 0 && net.every((n) => isNum(n?.rxBytes));
+  const rx = rxReady ? net.reduce((sum, n) => sum + Number(n.rxBytesPerSec), 0) : null;
+  const tx = txReady ? net.reduce((sum, n) => sum + Number(n.txBytesPerSec), 0) : null;
+  const totalRx = totalRxReady ? net.reduce((sum, n) => sum + Number(n.rxBytes), 0) : null;
 
   return (
     <div className="stack" style={{ display: 'grid', gap: '1.6rem' }}>
@@ -389,7 +394,7 @@ export function NetworkView({ metrics, history }) {
           <span className="proof__l">ACTIVE INTERFACES</span>
         </div>
         <div>
-          <span className="proof__n">{bytes(net.reduce((s, n) => s + (Number(n.rxBytes) || 0), 0))}</span>
+          <span className="proof__n">{bytes(totalRx)}</span>
           <span className="proof__l">CUMULATIVE RECEIVED</span>
         </div>
       </div>
@@ -455,7 +460,7 @@ export function GraphicsView({ metrics }) {
                 <Row label="GPU Load" value={util != null ? `${util.toFixed(0)}%` : 'N/A'} />
                 <Row label="VRAM Used" value={isNum(vramUsed) ? bytes(vramUsed) : '—'} />
                 <Row label="VRAM Total" value={isNum(vramTotal) ? bytes(vramTotal) : '—'} />
-                <Row label="Core Temp" value={isNum(g.temperature) && g.temperature > 0 ? `${g.temperature} °C` : '—'} />
+                <Row label="Core Temp" value={isNum(g.temperature) ? `${Number(g.temperature).toFixed(1)} °C` : '—'} />
               </div>
             </div>
           </section>
