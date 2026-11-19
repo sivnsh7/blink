@@ -143,10 +143,11 @@ export default function App() {
           processCount={processCount}
           collapsed={collapsed}
           mobileOpen={mobileOpen}
-          connected={connected}
+          connectionState={connectionState}
           onToggleCollapse={() => setCollapsed(value => !value)}
           onDisconnect={disconnect}
           onReconnect={reconnect}
+          onClose={() => dispatchNavigation({ type: 'CLOSE_DRAWER' })}
         />
 
         {mobileOpen && (
@@ -160,6 +161,7 @@ export default function App() {
             connected={connected}
             snapshotState={snapshotState}
             connectionState={connectionState}
+            navOpen={mobileOpen}
             darkMode={dark}
             onToggleTheme={() => setTheme(dark ? 'light' : 'dark')}
             onRetry={reconnect}
