@@ -1,78 +1,65 @@
-import React from 'react';
+import React, { useId } from 'react';
 
-/**
- * Isometric bar field.
- *
- * Each sample is drawn as three faces — front, end cap, and right flank — so
- * the column reads as a solid object rather than a coloured rectangle. No
- * gridlines, no glow: depth comes only from the face shading.
- */
+/** Compact SVG trend chart with a quiet grid and a single, legible series. */
 export default function IsoBars({
   data = [],
-  width = 280,
-  height = 112,
+  width = 560,
+  height = 140,
   max = 100,
-  depth = 2.6,
-  gap = 3.4,
   label = 'Activity over time',
   formatValue,
 }) {
-  const values = data.map((d) => (typeof d === 'number' ? d : Number(d?.value)));
-  const usable = values.filter((n) => Number.isFinite(n));
-  const upper = Math.max(1, max ?? 100, ...usable);
-  const count = Math.max(1, usable.length);
-
-  const pad = 4;
-  const floor = height - pad;
-  const maxHeight = height - pad - depth - 8;
-  const slot = (width - pad * 2) / count;
-  const barW = Math.max(2.5, Math.min(9, slot - gap));
-
-  const bx = depth * 0.5;
-  const by = -depth;
+  const id = useId().replace(/:/g, '');
+  const values = data
+    .map(item => (typeof item === 'number' ? item : item?.value))
+    .filter(value => typeof value === 'number' && Number.isFinite(value));
+  const left = 5;
+  const right = width - 5;
+  const top = 10;
+  const bottom = height - 12;
+  const upper = Math.max(1, Number.isFinite(max) ? max : 100, ...values);
+  const xStep = values.length > 1 ? (right - left) / (values.length - 1) : 0;
+  const points = values.map((value, index) => ({
+    x: left + index * xStep,
+    y: bottom - (Math.max(0, value) / upper) * (bottom - top),
+  }));
+  const line = points.map((point, index) =>
+    `${index === 0 ? 'M' : 'L'}${point.x.toFixed(2)} ${point.y.toFixed(2)}`
+  ).join(' ');
+  const area = points.length
+    ? `${line} L${right} ${bottom} L${left} ${bottom} Z`
+    : '';
+  const last = values.length ? values[values.length - 1] : null;
 
   return (
     <svg
-      className="chart"
+      className="chart trend-chart"
       width="100%"
       height={height}
-      style={{ maxWidth: width, display: 'block' }}
       viewBox={`0 0 ${width} ${height}`}
       role="img"
-      aria-label={label}
+      aria-label={`${label}: ${last == null ? 'awaiting samples' : formatValue ? formatValue(last) : last.toFixed(1)}`}
       preserveAspectRatio="none"
     >
-      <line x1={pad} x2={width - pad} y1={floor + 0.5} y2={floor + 0.5} stroke="var(--line)" strokeWidth="1" />
-      {usable.map((value, i) => {
-        const h = Math.max(2, (Math.max(0, value) / upper) * maxHeight);
-        const x = pad + i * slot + gap / 2;
-        const y = floor - h;
-        const muted = i < usable.length - 1 ? false : false;
-        return (
-          <g key={i} opacity={muted ? 0.5 : 1}>
-            {/* right flank */}
-            <path
-              d={`M${x + barW} ${y} l${bx} ${by} v${h} l${-bx} ${-by} Z`}
-              fill="var(--bar-side)"
-            />
-            {/* end cap */}
-            <path
-              d={`M${x} ${y} l${bx} ${by} h${barW} l${-bx} ${-by} Z`}
-              fill="var(--bar-top)"
-            />
-            {/* front face */}
-            <rect x={x} y={y} width={barW} height={h} rx="1" fill="var(--bar-front)" />
-          </g>
-        );
+      <defs>
+        <linearGradient id={`trend-fill-${id}`} x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0%" stopColor="var(--brand)" stopOpacity=".16" />
+          <stop offset="100%" stopColor="var(--brand)" stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      {[0, 0.25, 0.5, 0.75, 1].map(fraction => {
+        const y = top + fraction * (bottom - top);
+        return <line key={fraction} x1={left} x2={right} y1={y} y2={y} stroke="var(--line)" strokeWidth="1" strokeDasharray="3 4" />;
       })}
-      {usable.length === 0 && (
-        <text x={width / 2} y={height / 2} textAnchor="middle" fill="var(--ink-4)" fontSize="10" fontFamily="var(--mono)">
+      {points.length > 1 && <path d={area} fill={`url(#trend-fill-${id})`} />}
+      {points.length > 1 && <path d={line} fill="none" stroke="var(--brand)" strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" vectorEffect="non-scaling-stroke" />}
+      {points.length > 0 && <circle cx={points[points.length - 1].x} cy={points[points.length - 1].y} r="3" fill="var(--brand)" />}
+      {points.length < 2 && (
+        <text x={width / 2} y={height / 2} textAnchor="middle" dominantBaseline="middle" fill="var(--text-muted)" fontSize="11" fontFamily="var(--font-body)">
           Awaiting samples
         </text>
       )}
-      {formatValue && usable.length > 0 && (
-        <title>{`${label}: ${formatValue(usable[usable.length - 1])}`}</title>
-      )}
+      {formatValue && last != null && <title>{`${label}: ${formatValue(last)}`}</title>}
     </svg>
   );
 }

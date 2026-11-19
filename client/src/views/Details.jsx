@@ -93,7 +93,7 @@ export function CpuView({ metrics, history }) {
           <section className="card card-pad card--fold">
             <Head title="Overall Processor Capacity" stamp="REGISTER" />
             <div className="ring-wrap">
-              <Ring3D value={usage ?? 0} size={132} sublabel="BUSY" label="Processor utilisation" tone={usage != null && usage > 85 ? 'danger' : 'accent'} />
+              <Ring3D value={usage} size={132} sublabel="BUSY" label="Processor utilisation" tone={usage != null && usage > 85 ? 'danger' : 'accent'} />
               <div className="legend-list">
                 <Row label="Load 1m" value={isNum(load.l1) ? Number(load.l1).toFixed(2) : '—'} />
                 <Row label="Load 5m" value={isNum(load.l5) ? Number(load.l5).toFixed(2) : '—'} />
@@ -186,7 +186,7 @@ export function MemoryView({ metrics, history }) {
           <section className="card card-pad card--fold">
             <Head title="Virtual Memory & Allocation" stamp="PAGING" />
             <div className="ring-wrap">
-              <Ring3D value={usage ?? 0} size={132} sublabel="OF RAM" label="Memory utilisation" tone={usage != null && usage > 90 ? 'danger' : 'accent'} />
+              <Ring3D value={usage} size={132} sublabel="OF RAM" label="Memory utilisation" tone={usage != null && usage > 90 ? 'danger' : 'accent'} />
               <div className="legend-list">
                 <Row label="Installed RAM" value={bytes(m?.total)} />
                 <Row label="Committed Memory" value={m?.committedAs != null ? bytes(m.committedAs) : '—'} />
@@ -450,7 +450,7 @@ export function GraphicsView({ metrics }) {
           <section className="card card-pad card--fold" key={g.id ?? g.name}>
             <Head title={g.name || 'Graphics Adapter'} note={String(g.vendor || '').toUpperCase()} stamp="VRAM // ACCEL" />
             <div className="ring-wrap">
-              <Ring3D value={util ?? 0} size={124} sublabel={util != null ? "LOAD" : "N/A"} label="GPU utilisation" />
+              <Ring3D value={util} size={124} sublabel={util != null ? "LOAD" : "N/A"} label="GPU utilisation" />
               <div className="legend-list">
                 <Row label="GPU Load" value={util != null ? `${util.toFixed(0)}%` : 'N/A'} />
                 <Row label="VRAM Used" value={isNum(vramUsed) ? bytes(vramUsed) : '—'} />
@@ -542,7 +542,7 @@ export function BatteryView({ metrics }) {
             <Head title={b.id.toUpperCase()} note={b.status || 'unknown'} stamp="POWER SUPPLY" />
             <div className="ring-wrap">
               <Ring3D
-                value={cap ?? 0}
+                value={cap}
                 size={132}
                 sublabel={cap != null ? "CHARGE" : "N/A"}
                 label="Battery charge"

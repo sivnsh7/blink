@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { existsSync } from 'node:fs';
+import { existsSync, readFileSync } from 'node:fs';
 import {
   getCpuMetrics,
   getMemoryMetrics,
@@ -122,7 +122,7 @@ test('Process termination safety and validation guards', async () => {
   assert.throws(() => killHostProcess(999999, 'SIGFOO'), /Unsupported signal/);
 
   // Non-existent PID throws ESRCH
-  assert.throws(() => killHostProcess(999999, 'SIGTERM'), /does not exist/);
+  assert.throws(() => killHostProcess(999999, 'SIGTERM', 1), /does not exist/);
 
   // Successfully terminate a spawned child process
   const child = spawn('sleep', ['30']);
@@ -130,11 +130,29 @@ test('Process termination safety and validation guards', async () => {
 
   const exitPromise = new Promise((resolve) => child.on('exit', (code, signal) => resolve({ code, signal })));
 
-  const res = killHostProcess(child.pid, 'SIGTERM');
+  const stat = readFileSync(`/proc/${child.pid}/stat`, 'utf-8');
+  const end = stat.lastIndexOf(')');
+  const startTimeTicks = Number(stat.slice(end + 1).trim().split(/\s+/)[19]);
+  assert.ok(Number.isSafeInteger(startTimeTicks));
+
+  assert.throws(
+    () => killHostProcess(child.pid, 'SIGTERM', startTimeTicks + 1),
+    /Process identity changed/
+  );
+
+  const res = killHostProcess(child.pid, 'SIGTERM', startTimeTicks);
   assert.equal(res.ok, true);
   assert.equal(res.pid, child.pid);
   assert.equal(res.signal, 'SIGTERM');
 
   const { signal } = await exitPromise;
   assert.equal(signal, 'SIGTERM');
+});
+
+
+test('Process termination requires a sampled start-time identity token', () => {
+  assert.throws(
+    () => killHostProcess(process.pid + 100000, 'SIGTERM'),
+    /start-time identity token is required/
+  );
 });

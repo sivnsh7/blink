@@ -1,7 +1,12 @@
 import { readFileSync, readdirSync, realpathSync, existsSync, statfsSync } from 'fs';
 import os from 'os';
 import path from 'path';
-import { advanceSamplingBaseline, createSamplingBaseline } from './samplingState.js';
+import {
+  advanceSamplingBaseline,
+  createSamplingBaseline,
+  advanceProcessSampling,
+  createProcessSamplingState,
+} from './samplingState.js';
 
 // Cached hardware constants (read once safely without shell spawning)
 const pageSize = (() => {
@@ -285,13 +290,15 @@ function calculateDiskRates(current, previous, intervalSeconds) {
     const writeOpsDelta = curr.writesCompleted - prev.writesCompleted;
 
     // Handle counter resets
+    const readTimeDelta = curr.readTime - prev.readTime;
+    const writeTimeDelta = curr.writeTime - prev.writeTime;
     rates[name] = {
-      readBytesPerSec: Math.max(0, readSectorsDelta * 512) / interval,
-      writeBytesPerSec: Math.max(0, writeSectorsDelta * 512) / interval,
-      readIops: Math.max(0, readOpsDelta) / interval,
-      writeIops: Math.max(0, writeOpsDelta) / interval,
-      readLatency: readOpsDelta > 0 ? Math.max(0, curr.readTime - prev.readTime) / readOpsDelta : 0,
-      writeLatency: writeOpsDelta > 0 ? Math.max(0, curr.writeTime - prev.writeTime) / writeOpsDelta : 0,
+      readBytesPerSec: readSectorsDelta >= 0 ? (readSectorsDelta * 512) / interval : null,
+      writeBytesPerSec: writeSectorsDelta >= 0 ? (writeSectorsDelta * 512) / interval : null,
+      readIops: readOpsDelta >= 0 ? readOpsDelta / interval : null,
+      writeIops: writeOpsDelta >= 0 ? writeOpsDelta / interval : null,
+      readLatency: readOpsDelta > 0 && readTimeDelta >= 0 ? readTimeDelta / readOpsDelta : null,
+      writeLatency: writeOpsDelta > 0 && writeTimeDelta >= 0 ? writeTimeDelta / writeOpsDelta : null,
     };
   }
   return rates;
@@ -399,12 +406,12 @@ export function getDiskMetrics() {
     if (!existsSync(`/sys/block/${name}`)) continue;
 
     const rate = rates[name] || {
-      readBytesPerSec: 0,
-      writeBytesPerSec: 0,
-      readIops: 0,
-      writeIops: 0,
-      readLatency: 0,
-      writeLatency: 0,
+      readBytesPerSec: null,
+      writeBytesPerSec: null,
+      readIops: null,
+      writeIops: null,
+      readLatency: null,
+      writeLatency: null,
     };
     const props = getBlockDeviceProps(name);
 
@@ -433,8 +440,8 @@ export function getDiskMetrics() {
     return {
       ...bd,
       mountpoint: matchingFs ? matchingFs.mountpoint : '',
-      used: matchingFs ? matchingFs.used : 0,
-      available: matchingFs ? matchingFs.available : 0,
+      used: matchingFs ? matchingFs.used : null,
+      available: matchingFs ? matchingFs.available : null,
       usePercent: matchingFs ? matchingFs.usePercent : null,
     };
   });
@@ -488,14 +495,14 @@ function calculateNetRates(current, previous, intervalSeconds) {
     const txPktDelta = curr.txPackets - prev.txPackets;
 
     rates[name] = {
-      rxBytesPerSec: Math.max(0, rxDelta) / interval,
-      txBytesPerSec: Math.max(0, txDelta) / interval,
-      rxPacketsPerSec: Math.max(0, rxPktDelta) / interval,
-      txPacketsPerSec: Math.max(0, txPktDelta) / interval,
-      rxErrors: Math.max(0, curr.rxErrors - prev.rxErrors),
-      txErrors: Math.max(0, curr.txErrors - prev.txErrors),
-      rxDropped: Math.max(0, curr.rxDropped - prev.rxDropped),
-      txDropped: Math.max(0, curr.txDropped - prev.txDropped),
+      rxBytesPerSec: rxDelta >= 0 ? rxDelta / interval : null,
+      txBytesPerSec: txDelta >= 0 ? txDelta / interval : null,
+      rxPacketsPerSec: rxPktDelta >= 0 ? rxPktDelta / interval : null,
+      txPacketsPerSec: txPktDelta >= 0 ? txPktDelta / interval : null,
+      rxErrors: curr.rxErrors >= prev.rxErrors ? curr.rxErrors - prev.rxErrors : null,
+      txErrors: curr.txErrors >= prev.txErrors ? curr.txErrors - prev.txErrors : null,
+      rxDropped: curr.rxDropped >= prev.rxDropped ? curr.rxDropped - prev.rxDropped : null,
+      txDropped: curr.txDropped >= prev.txDropped ? curr.txDropped - prev.txDropped : null,
     };
   }
   return rates;
@@ -545,14 +552,14 @@ export function getNetworkMetrics() {
         operstate: props.operstate,
         rxBytes: stat.rxBytes,
         txBytes: stat.txBytes,
-        rxBytesPerSec: rate.rxBytesPerSec || 0,
-        txBytesPerSec: rate.txBytesPerSec || 0,
-        rxPacketsPerSec: rate.rxPacketsPerSec || 0,
-        txPacketsPerSec: rate.txPacketsPerSec || 0,
-        rxErrors: rate.rxErrors || 0,
-        txErrors: rate.txErrors || 0,
-        rxDropped: rate.rxDropped || 0,
-        txDropped: rate.txDropped || 0,
+        rxBytesPerSec: rate.rxBytesPerSec ?? null,
+        txBytesPerSec: rate.txBytesPerSec ?? null,
+        rxPacketsPerSec: rate.rxPacketsPerSec ?? null,
+        txPacketsPerSec: rate.txPacketsPerSec ?? null,
+        rxErrors: rate.rxErrors ?? null,
+        txErrors: rate.txErrors ?? null,
+        rxDropped: rate.rxDropped ?? null,
+        txDropped: rate.txDropped ?? null,
       };
     });
 }
@@ -571,14 +578,16 @@ function parseProcessStat(pid) {
 
     const utime = parseInt(after[11], 10);
     const stime = parseInt(after[12], 10);
+    const startTimeTicks = parseInt(after[19], 10);
     const numThreads = parseInt(after[17], 10);
     const state = after[0];
     const ppid = parseInt(after[1], 10);
 
-    let rss = 0;
+    let rss = null;
     try {
       const statmParts = readFileSync(`/proc/${pid}/statm`, 'utf-8').trim().split(/\s+/);
-      rss = parseInt(statmParts[1], 10) * pageSize;
+      const residentPages = parseInt(statmParts[1], 10);
+      if (Number.isFinite(residentPages) && residentPages >= 0) rss = residentPages * pageSize;
     } catch {}
 
     let affinity = [];
@@ -600,6 +609,7 @@ function parseProcessStat(pid) {
       comm,
       utime,
       stime,
+      startTimeTicks,
       numThreads,
       state,
       ppid,
@@ -664,26 +674,17 @@ export function getProcessMetrics() {
 
     const processes = [];
     for (const proc of entries) {
-      const baseline = processCpuBaselines.get(proc.pid) || { phase: 'uninitialized' };
-      let cpuPercent = 0;
-      if (baseline.phase === 'ready') {
-        const timeDelta = proc.utime + proc.stime - (baseline.utime + baseline.stime);
-        const realTimeDelta = (now - baseline.sampledAt) / 1000;
-        // Counter rollback or a non-positive interval establishes a new baseline.
-        if (realTimeDelta > 0 && timeDelta >= 0) {
-          cpuPercent = ((timeDelta / clkTck) / realTimeDelta) * 100;
-        }
-      }
-      processCpuBaselines.set(proc.pid, {
-        phase: 'ready',
-        utime: proc.utime,
-        stime: proc.stime,
-        sampledAt: now,
-      });
-      const memPercent = memTotal > 0 ? (proc.rss / memTotal) * 100 : 0;
+      const baseline = processCpuBaselines.get(proc.pid) || createProcessSamplingState();
+      const sample = advanceProcessSampling(baseline, proc, now, clkTck);
+      processCpuBaselines.set(proc.pid, sample.state);
+      const cpuPercent = sample.cpuPercent == null
+        ? null
+        : Math.min(100 * (os.cpus()?.length || 1), Math.max(0, sample.cpuPercent));
+      const memPercent = memTotal > 0 && proc.rss != null ? (proc.rss / memTotal) * 100 : null;
 
       processes.push({
         pid: proc.pid,
+        startTimeTicks: proc.startTimeTicks,
         ppid: proc.ppid,
         name: proc.comm,
         state: getStateName(proc.state),
@@ -1174,7 +1175,7 @@ export function getHostAudit(snapshot = null) {
 
 // ─── SAFE PROCESS TERMINATION CONTROL ───────────────────────────────────────
 
-export function killHostProcess(pid, signal = 'SIGTERM') {
+export function killHostProcess(pid, signal = 'SIGTERM', expectedStartTimeTicks = null) {
   const numericPid = Number(pid);
   if (!Number.isInteger(numericPid) || numericPid <= 1) {
     throw new Error(`Invalid process ID: ${pid}. Terminating PID 1 (init) or non-positive PIDs is strictly prohibited.`);
@@ -1189,27 +1190,40 @@ export function killHostProcess(pid, signal = 'SIGTERM') {
   if (!allowedSignals.includes(signal)) {
     throw new Error(`Unsupported signal: ${signal}. Allowed signals: ${allowedSignals.join(', ')}`);
   }
+  if (expectedStartTimeTicks === null || expectedStartTimeTicks === undefined ||
+      expectedStartTimeTicks === '' ||
+      !Number.isSafeInteger(Number(expectedStartTimeTicks)) || Number(expectedStartTimeTicks) < 0) {
+    throw new Error('A valid process start-time identity token is required. Refresh the process list and inspect the process again.');
+  }
 
-  // Disallow killing kernel tasks
+  // Fail closed: verify the sampled process identity immediately before signaling.
+  const statPath = `/proc/${numericPid}/stat`;
+  if (!existsSync(statPath)) {
+    throw new Error(`Process ${numericPid} does not exist.`);
+  }
+  let processStat;
   try {
-    const statPath = `/proc/${numericPid}/stat`;
-    if (existsSync(statPath)) {
-      const content = readFileSync(statPath, 'utf-8');
-      const end = content.lastIndexOf(')');
-      if (end !== -1) {
-        const after = content.slice(end + 1).trim().split(/\s+/);
-        const ppid = parseInt(after[1], 10);
-        const flags = parseInt(after[6], 10);
-        const isKernel = (flags & 0x00200000) !== 0 || ppid === 2;
-        if (isKernel) {
-          throw new Error(`Process ${numericPid} is a Linux kernel task and cannot be terminated.`);
-        }
-      }
-    }
-  } catch (err) {
-    if (err.message && err.message.includes('kernel task')) {
-      throw err;
-    }
+    processStat = readFileSync(statPath, 'utf-8');
+  } catch {
+    throw new Error(`Unable to verify process identity for PID ${numericPid}; no signal was sent. Refresh the process list and inspect it again.`);
+  }
+
+  const statEnd = processStat.lastIndexOf(')');
+  if (statEnd === -1) {
+    throw new Error(`Unable to parse process identity for PID ${numericPid}; no signal was sent.`);
+  }
+  const statFields = processStat.slice(statEnd + 1).trim().split(/\s+/);
+  const actualStartTimeTicks = Number(statFields[19]);
+  if (!Number.isSafeInteger(actualStartTimeTicks) ||
+      Number(expectedStartTimeTicks) !== actualStartTimeTicks) {
+    throw new Error(`Process identity changed for PID ${numericPid}; no signal was sent. Refresh the process list and inspect it again.`);
+  }
+
+  const parentPid = Number(statFields[1]);
+  const flags = Number(statFields[6]);
+  const isKernel = (flags & 0x00200000) !== 0 || parentPid === 2;
+  if (isKernel) {
+    throw new Error(`Process ${numericPid} is a Linux kernel task and cannot be terminated.`);
   }
 
   try {

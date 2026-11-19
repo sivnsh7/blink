@@ -204,7 +204,7 @@ export default function AuditView({ metrics }) {
             </p>
             <div className="meter">
               <i className={sec ? 'on' : ''} />
-              <i className={sec?.isContainer !== null ? 'on' : ''} />
+              <i className={typeof sec?.isContainer === 'boolean' ? 'on' : ''} />
               <i className={sec?.isContainer === false ? 'on' : ''} />
             </div>
           </div>
@@ -217,18 +217,20 @@ export default function AuditView({ metrics }) {
                 <h3>LSM Framework</h3>
               </div>
               <span
-                className={`stamp ${sec?.appArmor || sec?.selinux ? 'stamp--confirmed' : 'stamp--idle'}`}
+                className={`stamp ${sec?.appArmor === true || sec?.selinux === true ? 'stamp--confirmed' : 'stamp--idle'}`}
                 style={{ fontSize: '.6rem' }}
               >
-                {sec?.appArmor ? 'APPARMOR' : sec?.selinux ? 'SELINUX' : 'NONE DETECTED'}
+                {sec?.appArmor === true ? 'APPARMOR' : sec?.selinux === true ? 'SELINUX' : sec?.appArmor === false && sec?.selinux === false ? 'NONE DETECTED' : 'UNKNOWN'}
               </span>
             </div>
             <p style={{ fontSize: '.82rem', color: 'var(--ink-soft)', marginTop: '.4rem' }}>
-              {sec?.appArmor
+              {sec?.appArmor === true
                 ? 'AppArmor kernel security module active'
-                : sec?.selinux
+                : sec?.selinux === true
                 ? 'SELinux security module active'
-                : 'No active Linux Security Module (AppArmor/SELinux) reported in sysfs'}
+                : sec?.appArmor === false && sec?.selinux === false
+                ? 'No active Linux Security Module reported by this host'
+                : 'Security module status is not available in the current snapshot'}
             </p>
             <div className="meter">
               <i className="on" />
@@ -248,12 +250,12 @@ export default function AuditView({ metrics }) {
               Task stall times and resource pressure sampled from the Linux task scheduler.
             </p>
           </div>
-          <span className={`stamp ${psi?.supported ? 'stamp--live' : 'stamp--idle'}`}>
-            {psi?.supported ? 'PSI ACTIVE' : 'PSI UNSUPPORTED'}
+          <span className={`stamp ${psi?.supported === true ? 'stamp--live' : 'stamp--idle'}`}>
+            {psi?.supported === true ? 'PSI AVAILABLE' : psi?.supported === false ? 'PSI UNSUPPORTED' : 'PSI UNKNOWN'}
           </span>
         </div>
 
-        {!psi?.supported ? (
+        {psi?.supported !== true ? (
           <div
             style={{
               padding: '1.2rem',
@@ -265,7 +267,9 @@ export default function AuditView({ metrics }) {
               color: 'var(--ink-soft)',
             }}
           >
-            Linux Pressure Stall Information (PSI) is not enabled or not supported on this kernel (requires CONFIG_PSI=y). Pressure stall counters are unavailable.
+            {psi?.supported === false
+              ? 'Linux Pressure Stall Information (PSI) is not enabled or supported by the current kernel configuration.'
+              : 'PSI support has not been confirmed by the current host snapshot. No pressure rating is inferred.'}
           </div>
         ) : (
           <div className="files">
@@ -440,8 +444,8 @@ export default function AuditView({ metrics }) {
                 fontSize: '.78rem',
               }}
             >
-              <span className="stamp stamp--confirmed" style={{ fontSize: '.6rem' }}>OPTIMAL</span>
-              <span>Host parameters within normal heuristic baselines. No severe task stalls or memory exhaustion observed.</span>
+              <span className="stamp stamp--idle" style={{ fontSize: '.6rem' }}>NO FINDINGS</span>
+              <span>No recommendations were returned. This is not proof that the host is secure; review evaluated-check coverage and unavailable telemetry above.</span>
             </div>
           )}
         </div>
