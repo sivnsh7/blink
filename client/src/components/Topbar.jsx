@@ -4,7 +4,7 @@ import { useRedaction } from '../context/RedactionContext';
 import { telemetryStatusView } from '../lib/stateMachines.js';
 
 export default function Topbar({
-  title, connected, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
+  title, connected, connectionState, navOpen, darkMode, onToggleTheme, onRetry, onRefresh, onOpenNav,
   snapshotState = 'empty',
 }) {
   const { redactionMode, toggleRedactionMode } = useRedaction();
@@ -19,7 +19,7 @@ export default function Topbar({
   return (
     <header className="topbar">
       <div className="topbar-left">
-        <button type="button" className="icon-btn menu-btn" onClick={onOpenNav} aria-label="Open navigation menu">
+        <button type="button" className="icon-btn menu-btn" onClick={onOpenNav} aria-label="Open navigation menu" aria-expanded={Boolean(navOpen)} aria-controls="main-navigation">
           <Icon name="menu" size={18} />
         </button>
         <div className="crumbs">
