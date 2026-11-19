@@ -7,6 +7,7 @@ import '@fontsource/ibm-plex-mono/500.css';
 import '@fontsource/ibm-plex-mono/700.css';
 import './tokens.css';
 import './components.css';
+import './responsive.css';
 import App from './App';
 import AppErrorBoundary from './components/AppErrorBoundary';
 
