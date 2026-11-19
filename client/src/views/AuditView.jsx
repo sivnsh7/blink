@@ -406,7 +406,7 @@ export default function AuditView({ metrics }) {
             <h2 className="card-title">Automated Heuristic Observations</h2>
             <p className="card-note">Rule-based observations derived from current host telemetry.</p>
           </div>
-          <span className="stamp stamp--confirmed">HEURISTIC ANALYSIS</span>
+          <span className="stamp stamp--idle">HEURISTIC ANALYSIS</span>
         </div>
 
         <div style={{ display: 'grid', gap: '.65rem' }}>
