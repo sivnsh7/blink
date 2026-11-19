@@ -10,7 +10,7 @@ function Head({ title, note, stamp = 'TELEMETRY' }) {
     <div className="card-head">
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '.6rem', marginBottom: '.3rem' }}>
-          {stamp && <span className="stamp stamp--confirmed" style={{ fontSize: '.58rem' }}>{stamp}</span>}
+          {stamp && <span className="stamp stamp--idle" style={{ fontSize: '.58rem' }}>{stamp}</span>}
           <h2 className="card-title">{title}</h2>
         </div>
         {note && <p className="card-note">{note}</p>}
