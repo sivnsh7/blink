@@ -120,6 +120,7 @@ retrying.
 - [Redesign plan and component contract](docs/REDESIGN-PLAN.md)
 - [Client/server state-machine inventory](docs/STATE-MACHINES.md)
 - [Architecture, implicit-state and UX audit](docs/ARCHITECTURE-AUDIT.md)
+- [Responsive UX and viewport quality guide](docs/RESPONSIVE-UX.md)
 
 The CI workflow runs dependency installation, the automated test suite and the
 production build on pushes to main and pull requests targeting main.
