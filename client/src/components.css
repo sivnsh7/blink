@@ -192,7 +192,6 @@ tbody tr:focus-within td { background: var(--brand-soft); }
 .mod__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 12px; }
 .mod h3 { margin: 4px 0 0; color: var(--text); font-size: 14px; font-weight: 600; }
 .proof .proof__n, .tabular { font-variant-numeric: tabular-nums; }
-.rule-redact { height: 1px; margin: 8px 0; background: var(--line); }
 .banner { display: flex; align-items: center; justify-content: space-between; gap: 14px; }
 .banner[role="alert"] { border-color: color-mix(in srgb,var(--danger) 38%,var(--line)) !important; background: var(--danger-soft) !important; color: var(--danger) !important; }
 
@@ -216,10 +215,7 @@ tbody tr:focus-within td { background: var(--brand-soft); }
 .system-item span { display: block; color: var(--text-muted); font-size: 10px; }
 .system-item strong { display: block; margin-top: 4px; color: var(--text); font-size: 12px; overflow-wrap: anywhere; }
 
-/* Redaction, menu and status */
-.redact { display: inline; max-width: 100%; padding: 0; border: 0; border-radius: 4px; background: transparent; color: inherit; font: inherit; cursor: pointer; text-align: inherit; }
-.redact:not(.is-revealed) { background: color-mix(in srgb, var(--text) 88%, var(--surface)); color: transparent; text-shadow: none; }
-.redact:focus-visible { outline: 2px solid var(--brand); outline-offset: 3px; }
+/* Navigation and status */
 .ticker-wrap { display: none; }
 .scrim { position: fixed; inset: 0; z-index: 35; border: 0; background: rgba(15,23,42,.48); }
 body, .workspace { min-width: 0; }
@@ -272,7 +268,6 @@ td .btn { min-height: 34px; }
   .crumbs { gap: 7px; }
   .crumbs .stamp { display: none; }
   .crumbs strong { max-width: min(42vw, 190px); }
-  .topbar-right .mask-label { display: none; }
   .topbar-right .btn { width: 40px; min-width: 40px; padding: 0; font-size: 0; }
   .topbar-right .btn svg { width: 16px; height: 16px; }
   .page { padding: 21px 14px 30px; }
